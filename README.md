@@ -1,9 +1,19 @@
-Plataforma de Monitoreo Inteligente - Grupo CordilleraEste proyecto consiste en una plataforma integral de monitoreo para el desempeño organizacional de Grupo Cordillera. La solución utiliza una arquitectura de microservicios para transformar procesos manuales y datos fragmentados en una plataforma automatizada que facilita la toma de decisiones en tiempo real.  🏗️ Arquitectura del SistemaLa arquitectura se basa en microservicios utilizando un enfoque por capacidades de negocio. Se implementaron los siguientes patrones de diseño para garantizar escalabilidad y robustez:  API Gateway: Punto de entrada único que centraliza las solicitudes, mejora la seguridad y reduce la latencia.  BFF (Backend for Frontend): Actúa como una capa de agregación para optimizar la comunicación entre el frontend y los microservicios de Producto, Categoría y Stock.Repository Pattern: Utilizado en los microservicios para gestionar el acceso a los datos de forma desacoplada.  Circuit Breaker: Previene fallos en cadena, permitiendo que el sistema responda incluso si un servicio está lento o caído.  Factory Method: Empleado en el servicio de reportes para generar documentos en formatos PDF, Excel o Word según la necesidad.  💻 TecnologíasFrontendReact 18 (Vite)   Bootstrap / React-Bootstrap (Diseño responsivo)Metodología de Diseño Atómico (Atoms, Molecules, Organisms, Templates, Pages)React Router Dom (Navegación SPA)Backend & DevOpsSpring Boot (Java) y Django REST Framework (Python)   PostgreSQL (Base de datos relacional)Docker & Kubernetes (Contenedores y orquestación)   SonarQube (Calidad de código)   🚀 Instalación y Configuración1. Clonar el repositorioBashgit clone https://github.com/TU_USUARIO/cordillera-frontend.git
+Plataforma de Monitoreo Inteligente - Grupo CordilleraEste proyecto consiste en una plataforma integral de monitoreo para el desempeño organizacional de Grupo Cordillera. La solución utiliza una arquitectura de microservicios para transformar procesos manuales y datos fragmentados en una plataforma automatizada que facilita la toma de decisiones en tiempo real.  🏗️ Arquitectura del Sistema La arquitectura se basa en microservicios utilizando un enfoque por capacidades de negocio. Se implementaron los siguientes patrones de diseño para garantizar escalabilidad y robustez:  API Gateway: Punto de entrada único que centraliza las solicitudes, mejora la seguridad y reduce la latencia.  BFF (Backend for Frontend): Actúa como una capa de agregación para optimizar la comunicación entre el frontend y los microservicios de Producto, Categoría y Stock. Repository Pattern: Utilizado en los microservicios para gestionar el acceso a los datos de forma desacoplada.  Circuit Breaker: Previene fallos en cadena, permitiendo que el sistema responda incluso si un servicio está lento o caído. 💻 TecnologíasFrontendReact 18 (Vite)   Bootstrap / React-Bootstrap (Diseño responsivo)Metodología de Diseño Atómico (Atoms, Molecules, Organisms, Templates, Pages)React Router Dom (Navegación SPA)Backend & DevOpsSpring Boot (Java)   PostgreSQL (Base de datos relacional)Docker 
+
+🚀 Instalación y Configuración1. Clonar el repositorio Bash git:  clone https://github.com/TU_USUARIO/cordillera-frontend.git
 cd cordillera-frontend
-2. Instalar dependenciasBashnpm install
+2. Instalar dependencias Bash: npm install
 3. Configurar variables de entornoCrea un archivo .env en la raíz del proyecto con la URL de tu API Gateway:Fragmento de códigoVITE_API_GATEWAY_URL=http://localhost:8090/bff
-4. Ejecutar el proyectoBashnpm run dev
-📊 Integración con MicroserviciosEl frontend se comunica con el API Gateway (puerto 8090), el cual redirige las peticiones al BFF (puerto 8084). El flujo de datos principal para el inventario es:GET /bff/catalogo/lista -> Solicitado por el Custom Hook useInventory.El BFF orquesta las llamadas a los microservicios de Productos (8082), Categorías (8083) y Stock (8085).Los datos unificados se muestran en la InventoryTable (Organismo).👥 Equipo de Trabajo   Gabriel CuevasFabian ArmijoElias LeonJoaquin FuenzalidaProfesor: Eric Bastian Ramirez Santis   Año 2026 - Proyecto de Plataforma de Monitoreo   Python# Full README content based on all project details
+4. Ejecutar el proyecto Bash: npm run dev
+📊 Integración con MicroserviciosEl frontend se comunica con el API Gateway (puerto 8090), el cual redirige las peticiones al BFF (puerto 8084). El flujo de datos principal para el inventario es:GET /bff/catalogo/lista -> Solicitado por el Custom Hook useInventory.El BFF orquesta las llamadas a los microservicios de Productos (8082), Categorías (8083) y Stock (8085).Los datos unificados se muestran en la InventoryTable (Organismo).
+👥 Equipo de Trabajo 
+Gabriel Cuevas
+Fabian Armijo
+Elias LeonJ
+oaquin Fuenzalida
+Profesor: Eric Bastian Ramirez Santis   
+Año 2026 - Proyecto de Plataforma de Monitoreo   
+Full README content based on all project details
 full_readme = """# Plataforma de Monitoreo Inteligente - Grupo Cordillera
 
 Este proyecto consiste en una plataforma integral de monitoreo para el desempeño organizacional de **Grupo Cordillera**. La solución utiliza una arquitectura de microservicios para transformar procesos manuales y datos fragmentados en una plataforma automatizada que facilita la toma de decisiones en tiempo real.
@@ -16,7 +26,6 @@ La arquitectura se basa en microservicios utilizando un enfoque por capacidades 
 * **BFF (Backend for Frontend)**: Actúa como una capa de agregación para optimizar la comunicación entre el frontend y los microservicios de Producto, Categoría y Stock.
 * **Repository Pattern**: Utilizado en los microservicios para gestionar el acceso a los datos de forma desacoplada.
 * **Circuit Breaker**: Previene fallos en cadena, permitiendo que el sistema responda incluso si un servicio está lento o caído.
-* **Factory Method**: Empleado en el servicio de reportes para generar documentos en formatos PDF, Excel o Word según la necesidad.
 
 ## 💻 Tecnologías
 
@@ -29,8 +38,7 @@ La arquitectura se basa en microservicios utilizando un enfoque por capacidades 
 ### Backend & DevOps
 * **Spring Boot (Java)** y **Django REST Framework (Python)**
 * **PostgreSQL** (Base de datos relacional)
-* **Docker & Kubernetes** (Contenedores y orquestación)
-* **SonarQube** (Calidad de código)
+
 
 ## 🚀 Instalación y Configuración
 
