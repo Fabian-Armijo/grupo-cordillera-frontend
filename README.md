@@ -27,11 +27,11 @@ La arquitectura se basa en microservicios utilizando un enfoque por capacidades 
 Salida de códigoREADME_Completo_Cordillera.md
 
 ```bash
-git clone https://github.com/Fabian-Armijo/grupo-cordillera-frontend.git
-cd cordillera-frontend
-2. Instalar dependenciasBashnpm install
-3. Configurar variables de entornoCrea un archivo .env en la raíz del proyecto con la URL de tu API Gateway:Fragmento de códigoVITE_API_GATEWAY_URL=http://localhost:8090/bff
-4. Ejecutar el proyectoBashnpm run dev
+1. git clone https://github.com/Fabian-Armijo/grupo-cordillera-frontend.git
+2. cd cordillera-frontend
+3. Instalar dependenciasBashnpm install
+4. Configurar variables de entornoCrea un archivo .env en la raíz del proyecto con la URL de tu API Gateway:Fragmento de códigoVITE_API_GATEWAY_URL=http://localhost:8090/bff
+5. Ejecutar el proyectoBashnpm run dev
 ```
 📂 Estructura del Proyecto (Atomic Design)src/components/atoms: Componentes base (Botones, Badges).src/components/molecules: Componentes funcionales simples (KpiCard).src/components/organisms: Componentes complejos y con estado (InventoryTable, SalesTable, Sidebar).src/components/templates: Estructuras de página (DashboardLayout).src/pages: Vistas finales que inyectan datos a los templates.src/hooks: Custom hooks para el consumo de la API (useInventory).src/services: Capa de servicios para peticiones HTTP.
 
