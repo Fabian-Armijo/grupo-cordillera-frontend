@@ -4,12 +4,19 @@ import { Table, Form, InputGroup, Badge } from 'react-bootstrap';
 export const InventoryTable = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredData = data.filter(item =>
-    item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.sku.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 1. FILTRO SEGURO: Usamos los nombres del DTO de Java y evitamos nulos
+  const filteredData = data.filter(item => {
+    // Si viene nombreProducto lo usa, si no, usa string vacío para que toLowerCase no falle
+    const nombre = item.nombreProducto || '';
+    const sku = item.sku || '';
+
+    return nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           sku.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const formatCurrency = (value) => {
+    // Si el valor es null o undefined, mostramos $0
+    if (value === null || value === undefined) return '$0';
     return new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'CLP'
@@ -33,50 +40,34 @@ export const InventoryTable = ({ data }) => {
       <Table responsive hover className="align-middle">
         <thead className="table-light">
           <tr>
-            <th>ID</th>
             <th>SKU</th>
             <th>Nombre</th>
-            <th>Descripción</th>
             <th>Categoría</th>
-            <th>Costo</th>
             <th>Precio</th>
-            <th>Estado</th>
+            <th>Stock Total</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           {filteredData.length > 0 ? (
-            filteredData.map((item) => (
-              <tr key={item.id}>
-                <td>{item.id}</td>
-                <td><code>{item.sku}</code></td>
-                <td className="fw-bold">{item.nombre}</td>
+            filteredData.map((item, index) => (
+              // Usamos index como key por si el DTO no trae ID todavía
+              <tr key={item.id || index}>
+                <td><code>{item.sku || 'SIN-SKU'}</code></td>
+                <td className="fw-bold">{item.nombreProducto}</td>
                 
-                {/* --- SOLUCIÓN APLICADA AQUÍ --- */}
-                <td>
-                  <div 
-                    style={{ 
-                      maxHeight: '65px',   // Altura máxima antes de mostrar el scroll
-                      overflowY: 'auto',   // Agrega scroll vertical solo si es necesario
-                      minWidth: '220px',   // Evita que la columna se comprima demasiado
-                      whiteSpace: 'normal',// Permite que el texto baje a la siguiente línea
-                      fontSize: '0.9rem'   // Letra ligeramente más pequeña para leer mejor
-                    }} 
-                    className="pe-2 text-secondary"
-                  >
-                    {item.descripcion}
-                  </div>
-                </td>
-                {/* ------------------------------- */}
-
-                <td>{item.categoria}</td>
-                <td className="text-secondary">{formatCurrency(item.costo)}</td>
+                {/* Usamos el nombre exacto del DTO: nombreCategoria */}
+                <td>{item.nombreCategoria}</td>
+                
                 <td className="text-success fw-bold">{formatCurrency(item.precio)}</td>
+                
+                {/* Mostramos el stock consolidado del BFF */}
                 <td>
-                  <Badge bg={item.activo ? 'success' : 'danger'}>
-                    {item.activo ? 'Activo' : 'Inactivo'}
+                  <Badge bg={item.stockTotalDisponible > 10 ? 'success' : (item.stockTotalDisponible > 0 ? 'warning' : 'danger')}>
+                    {item.stockTotalDisponible} unid.
                   </Badge>
                 </td>
+                
                 <td>
                   <button className="btn btn-sm btn-outline-primary">Editar</button>
                 </td>
@@ -84,8 +75,8 @@ export const InventoryTable = ({ data }) => {
             ))
           ) : (
             <tr>
-              <td colSpan="9" className="text-center py-4 text-muted">
-                No se encontraron productos con ese término.
+              <td colSpan="6" className="text-center py-4 text-muted">
+                No se encontraron productos.
               </td>
             </tr>
           )}

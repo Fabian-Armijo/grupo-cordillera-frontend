@@ -16,7 +16,7 @@ export const DashboardPage = () => {
           <KpiCard 
             title="Ventas Totales" 
             value="$45,230,000" 
-            colorClass="border-primary" // Borde azul
+            colorClass="border-primary"
           />
         </Col>
         
@@ -24,7 +24,7 @@ export const DashboardPage = () => {
           <KpiCard 
             title="Rentabilidad" 
             value="24.5%" 
-            colorClass="border-success" // Borde verde
+            colorClass="border-success"
           />
         </Col>
         
@@ -32,12 +32,12 @@ export const DashboardPage = () => {
           <KpiCard 
             title="Rotación de Inventario" 
             value="4.2 veces" 
-            colorClass="border-warning" // Borde amarillo
+            colorClass="border-warning"
           />
         </Col>
       </Row>
 
-      {/* Aquí más adelante podemos agregar Organismos como tablas de datos o gráficos */}
+      {/* Aquí podemos agregar Organismos como tablas de datos o gráficos */}
       <div className="bg-white p-4 rounded shadow-sm border text-center text-muted">
         <p className="mb-0">Espacio reservado para el gráfico de tendencias</p>
       </div>

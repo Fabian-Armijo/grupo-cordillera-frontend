@@ -4,16 +4,14 @@ import { Navbar, Container } from 'react-bootstrap';
 export const DashboardLayout = ({ children }) => {
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
-      {/* El Sidebar ahora es fixed, no ocupa espacio en el flujo normal */}
       <Sidebar />
 
-      {/* Contenedor del contenido: le damos un margen izquierdo de 250px (el ancho del sidebar) */}
       <div 
         className="flex-grow-1 bg-light d-flex flex-column" 
         style={{ 
-          marginLeft: '250px', // IMPORTANTE: Mismo ancho que el Sidebar
+          marginLeft: '250px',
           minWidth: 0,
-          width: 'calc(100% - 250px)' // Asegura que no se pase del ancho de pantalla
+          width: 'calc(100% - 250px)' 
         }}
       >
         <Navbar 
