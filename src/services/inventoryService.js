@@ -1,9 +1,10 @@
 // Obtenemos la URL del Gateway desde las variables de entorno de Vite
-const API_URL = import.meta.env.VITE_API_GATEWAY_URL;
+
+const API_URL = import.meta.env.VITE_API_GATEWAY_URL; 
 
 export const getInventoryData = async () => {
   try {
-    // Al Gateway no le importa si atrás hay 3 microservicios, él nos agrupa todo
+    // Si API_URL no tiene barra al final, se la ponemos aquí explícitamente
     const response = await fetch(`${API_URL}/catalogo/lista`); 
     
     if (!response.ok) {
