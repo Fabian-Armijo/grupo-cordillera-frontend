@@ -1,9 +1,19 @@
 import React from 'react';
 // Ajusta la cantidad de "../" dependiendo de qué tan profundo esté tu hook
 import { useHistorialReportes } from '../../hooks/useHistorialReportes';
+import { descargarReporteAntiguo } from '../../services/reporteService';
+
 
 export const HistorialReportes = () => {
     const { historial, cargando, error } = useHistorialReportes();
+    
+    const handleDescargarAntiguo = async (id) => {
+        try {
+            await descargarReporteAntiguo(id);
+        } catch (error) {
+            alert("Hubo un error al intentar descargar este reporte histórico.");
+        }
+    };
 
     if (cargando) return <p>Cargando el historial de reportes...</p>;
     if (error) return <p className="text-danger">Error: {error}</p>;
@@ -37,7 +47,10 @@ export const HistorialReportes = () => {
                             </td>
                             <td>{new Date(reporte.fechaGeneracion).toLocaleDateString('es-CL')}</td>
                             <td>
-                                <button className="btn btn-sm btn-primary">
+                                <button 
+                                    className="btn btn-sm btn-primary"
+                                    onClick={() => handleDescargarAntiguo(reporte.id)}
+                                >
                                     Descargar
                                 </button>
                             </td>

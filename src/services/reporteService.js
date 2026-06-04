@@ -18,7 +18,32 @@ export const obtenerHistorialReportes = async () => {
 
 
 export const descargarReporteAntiguo = async (id) => {
-    // Aquí irá la lógica de descarga más adelante
+    try {
+        const url = `${API_URL}/historial/${id}/descargar`;
+        const response = await fetch(url, { method: 'GET' });
+        
+        if (!response.ok) throw new Error('Error al descargar el PDF histórico');
+        
+        // 1. Convertimos la respuesta a Blob (archivo binario)
+        const blob = await response.blob();
+        
+        // 2. Creamos la URL temporal
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        // 3. Forzamos la descarga
+        const enlace = document.createElement('a');
+        enlace.href = blobUrl;
+        enlace.download = `Reporte_Historico_Grupo_Cordillera_${id}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        
+        // 4. Limpiamos la memoria
+        enlace.remove();
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+        console.error("Error al descargar el reporte histórico:", error);
+        throw error;
+    }
 };
 
 export const generarYDescargarReporte = async (periodo) => {
