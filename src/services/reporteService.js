@@ -90,3 +90,20 @@ export const enviarReportePorCorreo = async (periodo, correoDestino) => {
         throw error;
     }
 };
+
+export const obtenerUrlPrevisualizacion = async (periodo) => {
+    try {
+        const url = `${API_URL}/previsualizar?kpiId=1&sucursalId=1&periodo=${periodo}`;
+        const response = await fetch(url, { method: 'GET' });
+        
+        if (!response.ok) throw new Error('Error al previsualizar el PDF');
+        
+        const blob = await response.blob();
+        
+        // En lugar de descargar, devolvemos esta URL temporal para mostrarla en pantalla
+        return window.URL.createObjectURL(blob);
+    } catch (error) {
+        console.error("Error al previsualizar:", error);
+        throw error;
+    }
+};
