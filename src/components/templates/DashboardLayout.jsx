@@ -1,41 +1,50 @@
-import { Sidebar } from '../organisms/Sidebar';
-import { Navbar, Container } from 'react-bootstrap';
+import React from 'react';
+import Sidebar from '../organisms/Sidebar';
+import { Navbar } from 'react-bootstrap';
 
 export const DashboardLayout = ({ children }) => {
   return (
-    <div className="d-flex" style={{ minHeight: '100vh' }}>
+    // Flexbox puro: Sidebar a la izquierda y el contenido a la derecha
+    <div className="d-flex w-100" style={{ minHeight: '100vh', backgroundColor: '#020617' }}>
+
+      {/* 1. SIDEBAR: Se dibuja en su espacio natural izquierdo */}
       <Sidebar />
 
-      <div 
-        className="flex-grow-1 bg-light d-flex flex-column" 
-        style={{ 
-          marginLeft: '250px',
-          minWidth: 0,
-          width: 'calc(100% - 250px)' 
-        }}
-      >
-        <Navbar 
-          bg="white" 
-          className="border-bottom px-4 shadow-sm" 
-          style={{ 
-            position: 'sticky', 
-            top: 0, 
-            zIndex: 1040 
-          }}
+      {/* 2. CONTENEDOR DERECHO: Nace pegado al Sidebar y se estira al 100% de la pantalla restante */}
+      <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
+
+        {/* Navbar superior completo de lado a lado */}
+        <Navbar
+          bg="dark"
+          variant="dark"
+          className="border-bottom border-secondary px-4 py-3 shadow-sm w-100"
+          style={{ position: 'sticky', top: 0, zIndex: 1040, backgroundColor: '#0f172a' }}
         >
-          <Navbar.Brand>Plataforma de Monitoreo</Navbar.Brand>
-          <Navbar.Toggle />
-          <Navbar.Collapse className="justify-content-end">
-            <Navbar.Text className="fw-bold">
-              Usuario: Admin Corporativo
+          <div className="container-fluid d-flex justify-content-between align-items-center p-0">
+            <Navbar.Brand style={{ color: '#f8fafc', fontWeight: '500', margin: 0 }}>
+              Plataforma de Monitoreo
+            </Navbar.Brand>
+            <Navbar.Text style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
+              Usuario: <strong style={{ color: '#fff' }}>Admin Corporativo</strong>
             </Navbar.Text>
-          </Navbar.Collapse>
+          </div>
         </Navbar>
 
-        <Container fluid className="p-4" style={{ overflowX: 'hidden' }}>
+        {/* 3. ÁREA DE CONTENIDO: 100% responsiva y fluida */}
+        <div
+          className="w-100"
+          style={{
+            padding: '32px',
+            flexGrow: 1,
+            boxSizing: 'border-box'
+          }}
+        >
           {children}
-        </Container>
+        </div>
+
       </div>
     </div>
   );
 };
+
+export default DashboardLayout;
