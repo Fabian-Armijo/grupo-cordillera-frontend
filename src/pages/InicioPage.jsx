@@ -14,6 +14,13 @@ export const InicioPage = () => {
           revisar transacciones de compras/ventas y monitorear el inventario global de la compañía.
         </p>
 
+        {/* --- NUEVO BOTÓN DE INICIO DE SESIÓN --- */}
+        <div style={styles.actionContainer}>
+          <button style={styles.loginButton} onClick={() => navigate('/login')}>
+            Iniciar Sesión
+          </button>
+        </div>
+
         <div style={styles.gridAccesos}>
           <div style={styles.accesoCard} onClick={() => navigate('/kpi')}>
             <span style={styles.accesoIcon}>📊</span>
@@ -65,7 +72,25 @@ const styles = {
     marginBottom: '20px'
   },
   title: { fontSize: '32px', fontWeight: '700', color: '#f8fafc', margin: '0 0 16px 0' },
-  subtitle: { fontSize: '15px', color: '#94a3b8', lineHeight: '1.6', maxWidth: '600px', margin: '0 auto 40px auto' },
+  subtitle: { fontSize: '15px', color: '#94a3b8', lineHeight: '1.6', maxWidth: '600px', margin: '0 auto 30px auto' },
+  
+  // --- ESTILOS DEL NUEVO BOTÓN ---
+  actionContainer: {
+    marginBottom: '40px'
+  },
+  loginButton: {
+    backgroundColor: '#3b82f6', // Un azul corporativo
+    color: '#ffffff',
+    border: 'none',
+    padding: '12px 32px',
+    borderRadius: '8px',
+    fontSize: '16px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.3)',
+    transition: 'background-color 0.2s ease',
+  },
+  
   gridAccesos: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', textAlign: 'left' },
   accesoCard: {
     backgroundColor: '#020617',
@@ -83,5 +108,4 @@ const styles = {
   accesoDesc: { fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }
 };
 
-// Dejamos un hover simple usando CSS inyectado si lo deseas, o lo dejas así nativo.
 export default InicioPage;

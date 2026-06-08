@@ -1,11 +1,17 @@
-// src/services/reporteService.js
-
 // Apuntamos al Gateway, que redirigirá al microservicio de Reportes
 const API_URL = 'http://localhost:8090/api/reportes';
 
 export const obtenerHistorialReportes = async () => {
     try {
-        const response = await fetch(`${API_URL}/historial`);
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`${API_URL}/historial`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
         if (!response.ok) {
             throw new Error('Error al obtener el historial de reportes');
         }
@@ -16,11 +22,17 @@ export const obtenerHistorialReportes = async () => {
     }
 };
 
-
 export const descargarReporteAntiguo = async (id) => {
     try {
+        const token = localStorage.getItem('token');
         const url = `${API_URL}/historial/${id}/descargar`;
-        const response = await fetch(url, { method: 'GET' });
+        
+        const response = await fetch(url, { 
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         
         if (!response.ok) throw new Error('Error al descargar el PDF histórico');
         
@@ -48,9 +60,15 @@ export const descargarReporteAntiguo = async (id) => {
 
 export const generarYDescargarReporte = async (periodo) => {
     try {
-        // Asumiendo que el kpiId y sucursalId son 1 por defecto para esta prueba
+        const token = localStorage.getItem('token');
         const url = `${API_URL}/descargar?kpiId=1&sucursalId=1&periodo=${periodo}`;
-        const response = await fetch(url, { method: 'GET' });
+        
+        const response = await fetch(url, { 
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         
         if (!response.ok) throw new Error('Error al generar el PDF');
         
@@ -78,8 +96,15 @@ export const generarYDescargarReporte = async (periodo) => {
 
 export const enviarReportePorCorreo = async (periodo, correoDestino) => {
     try {
+        const token = localStorage.getItem('token');
         const url = `${API_URL}/enviar?kpiId=1&sucursalId=1&periodo=${periodo}&correoDestino=${correoDestino}`;
-        const response = await fetch(url, { method: 'POST' });
+        
+        const response = await fetch(url, { 
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         
         if (!response.ok) throw new Error('Error al enviar el correo');
         
@@ -93,8 +118,15 @@ export const enviarReportePorCorreo = async (periodo, correoDestino) => {
 
 export const obtenerUrlPrevisualizacion = async (periodo) => {
     try {
+        const token = localStorage.getItem('token');
         const url = `${API_URL}/previsualizar?kpiId=1&sucursalId=1&periodo=${periodo}`;
-        const response = await fetch(url, { method: 'GET' });
+        
+        const response = await fetch(url, { 
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         
         if (!response.ok) throw new Error('Error al previsualizar el PDF');
         

@@ -3,10 +3,15 @@ const API_URL = import.meta.env.VITE_API_GATEWAY_URL;
 // 1. Exportar la función para crear ventas
 export const postCrearVenta = async (datosVenta) => {
   try {
-    const response = await fetch(`${API_URL}/ventas`, {
+    // Rescatamos el token de la memoria del navegador
+    const token = localStorage.getItem('token');
+    
+    const response = await fetch(`${API_URL}/bff/ventas`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // Inyectamos el carnet de seguridad
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(datosVenta),
     });
@@ -21,13 +26,20 @@ export const postCrearVenta = async (datosVenta) => {
     console.error("Error de conexión:", error);
     throw error;
   }
-}; // <--- Aquí cerramos correctamente postCrearVenta
+};
 
 // 2. Exportar la función para listar ventas
 export const getListaVentas = async () => {
   try {
-    // Llamamos al endpoint del BFF que configuramos antes
-    const response = await fetch(`${API_URL}/ventas`); 
+    const token = localStorage.getItem('token');
+    
+    // Llamamos al endpoint del BFF añadiendo la cabecera
+    const response = await fetch(`${API_URL}/bff/ventas`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }); 
     
     if (!response.ok) {
       throw new Error('No se pudieron cargar las transacciones');
