@@ -27,41 +27,95 @@ export const DashboardPage = () => {
   // Actualiza los gráficos nativos cada vez que muta o se añade un elemento a 'listaKpis'
   useEffect(() => {
     if (listaKpis && Array.isArray(listaKpis) && listaKpis.length > 0) {
-      const data = listaKpis.map(kpi => ({
-        nombre: kpi.nombre || kpi.name || 'Indicador',
-        promedio: Number(kpi.valorActual || kpi.valor || 0),
-        objetivo: Number(kpi.meta || kpi.valorObjetivo || 0),
-      }));
+      const data = listaKpis.map(kpi => {
+        
+        // 🌟 LA MAGIA: Buscamos el valor en el arreglo de métricas que manda el BFF
+        let valorCalculado = 0;
+        if (kpi.metricas && kpi.metricas.length > 0) {
+          // Viene del Backend (PostgreSQL / BFF)
+          valorCalculado = kpi.metricas[0].valorActual || 0;
+        } else if (kpi.valorActual) {
+          // Viene del formulario local recién creado en la vista
+          valorCalculado = kpi.valorActual; 
+        }
+
+        return {
+          nombre: kpi.nombre || kpi.name || 'Indicador',
+          promedio: Number(valorCalculado),
+          objetivo: Number(kpi.meta || kpi.valorObjetivo || 0),
+        };
+      });
       setChartData(data);
     } else {
       setChartData([]);
     }
   }, [listaKpis]);
 
-  // Función para procesar y crear la nueva métrica
-  const handleCrearKpi = (e) => {
+  // Función asíncrona para guardar la nueva métrica en la base de datos real
+  const handleCrearKpi = async (e) => {
     e.preventDefault();
 
-    if (!nombre.trim() || !valorActual || !meta) {
-      alert("Por favor rellena todos los campos para definir la métrica.");
+    if (!nombre.trim() || !meta) {
+      alert("Por favor rellena al menos el Nombre y la Meta para definir la métrica.");
       return;
     }
 
-    // Creamos el nuevo objeto respetando las propiedades que leen tus componentes
-    const nuevoKpi = {
-      id: Date.now().toString(), // ID temporal único
-      nombre: nombre,
-      valorActual: Number(valorActual),
-      meta: Number(meta)
-    };
+    try {
+      const token = localStorage.getItem('token');
+      // Aseguramos apuntar al Gateway, si la variable de entorno no existe, usamos el puerto 8090 por defecto
+      const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8090';
 
-    // Lo agregamos al inicio de la lista para ver el cambio de inmediato
-    setListaKpis([nuevoKpi, ...listaKpis]);
+      // 1. Enviamos primero la Definición del KPI al backend
+      const responseDefinicion = await fetch(`${API_URL}/api/kpi/definiciones`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nombre: nombre,
+          descripcion: `Meta global de ${nombre}`,
+          valorObjetivo: Number(meta),
+          unidad: "U"
+        })
+      });
 
-    // Limpiamos los inputs del formulario
-    setNombre('');
-    setValorActual('');
-    setMeta('');
+      if (!responseDefinicion.ok) {
+        throw new Error('No se pudo guardar la definición del KPI en el servidor');
+      }
+
+      const nuevaDefinicionGuardada = await responseDefinicion.json();
+
+      // 2. Si el usuario también ingresó un "Valor Actual", registramos su primera métrica
+      if (valorActual && Number(valorActual) > 0) {
+        await fetch(`${API_URL}/api/kpi/metricas`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            definicion: {
+              id: nuevaDefinicionGuardada.id // Vinculamos la métrica al ID real de la BD
+            },
+            sucursalId: null, // Dato global
+            valorActual: Number(valorActual)
+          })
+        });
+      }
+
+      // 3. Éxito: Limpiamos los inputs del formulario
+      setNombre('');
+      setValorActual('');
+      setMeta('');
+      
+      // 4. Forzamos una recarga para que el hook 'useKpis' consulte de nuevo la base de datos
+      window.location.reload();
+
+    } catch (err) {
+      console.error("Error al crear el KPI en el ecosistema:", err);
+      alert("Hubo un error al comunicar con el microservicio de KPIs: " + err.message);
+    }
   };
 
   if (loading) {
@@ -241,207 +295,35 @@ export const DashboardPage = () => {
   );
 };
 
-// MAPA DE ESTILOS INLINE LIMPIO Y REESTRUCTURADO SIN DETALLES EXTRANOS
+// MAPA DE ESTILOS INLINE
 const styles = {
-  container: {
-    backgroundColor: '#020617',
-    padding: '12px 0',
-    fontFamily: "'Segoe UI', Roboto, sans-serif",
-    color: '#f1f5f9',
-    boxSizing: 'border-box'
-  },
-  centerContainer: {
-    minHeight: '60vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  title: {
-    fontSize: '24px',
-    fontWeight: '600',
-    color: '#f8fafc',
-    margin: 0,
-    textAlign: 'left'
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#64748b',
-    marginTop: '4px',
-    margin: 0,
-    textAlign: 'left'
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '16px',
-    marginBottom: '24px'
-  },
-  chartsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '24px'
-  },
-  card: {
-    backgroundColor: '#0f172a',
-    border: '1px solid #1e293b',
-    borderRadius: '12px',
-    padding: '24px',
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  cardTitle: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#cbd5e1',
-    marginBottom: '20px',
-    margin: 0,
-    textAlign: 'left'
-  },
-  iconBadge: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px',
-    marginBottom: '16px',
-    flexShrink: 0
-  },
-  statValue: {
-    fontSize: '24px',
-    fontWeight: '600',
-    fontFamily: 'monospace',
-    color: '#f8fafc',
-    margin: 0,
-    textAlign: 'left'
-  },
-  statLabel: {
-    fontSize: '12px',
-    color: '#64748b',
-    marginTop: '2px',
-    margin: 0,
-    textAlign: 'left'
-  },
-  progressTrack: {
-    width: '100%',
-    height: '6px',
-    backgroundColor: '#1e293b',
-    borderRadius: '9999px',
-    overflow: 'hidden'
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: '9999px',
-    transition: 'width 0.5s ease-in-out'
-  },
-  emptyText: {
-    fontSize: '14px',
-    color: '#475569',
-    textAlign: 'center',
-    padding: '32px 0',
-    margin: 0
-  },
-  nativeChartWrapper: {
-    display: 'flex',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: '200px',
-    padding: '10px 0',
-    borderBottom: '1px solid #1e293b',
-    gap: '12px'
-  },
-  chartColumn: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    flex: 1,
-    height: '100%',
-    justifyContent: 'flex-end'
-  },
-  barsContainer: {
-    display: 'flex',
-    alignItems: 'flex-end',
-    gap: '6px',
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    marginBottom: '8px'
-  },
-  nativeBar: {
-    width: '16px',
-    borderRadius: '4px 4px 0 0',
-    transition: 'height 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
-  },
-  chartLabel: {
-    fontSize: '11px',
-    color: '#64748b',
-    textAlign: 'center',
-    marginTop: '4px',
-    whiteSpace: 'nowrap'
-  },
-  legendContainer: {
-    display: 'flex',
-    gap: '16px',
-    marginTop: '16px',
-    justifyContent: 'center'
-  },
-  legendItem: {
-    fontSize: '12px',
-    color: '#64748b',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px'
-  },
-  legendDot: {
-    width: '10px',
-    height: '10px',
-    borderRadius: '3px',
-    display: 'inline-block'
-  },
-  formRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '16px',
-    width: '100%',
-    alignItems: 'flex-end'
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    flex: '1 1 200px',
-    gap: '6px'
-  },
-  label: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    fontWeight: '500',
-    textAlign: 'left'
-  },
-  input: {
-    backgroundColor: '#020617',
-    border: '1px solid #1e293b',
-    borderRadius: '6px',
-    padding: '10px 12px',
-    fontSize: '14px',
-    color: '#f1f5f9',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box'
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    height: '42px',
-    transition: 'background-color 0.2s'
-  }
+  container: { backgroundColor: '#020617', padding: '12px 0', fontFamily: "'Segoe UI', Roboto, sans-serif", color: '#f1f5f9', boxSizing: 'border-box' },
+  centerContainer: { minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: '24px', fontWeight: '600', color: '#f8fafc', margin: 0, textAlign: 'left' },
+  subtitle: { fontSize: '14px', color: '#64748b', marginTop: '4px', margin: 0, textAlign: 'left' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' },
+  chartsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' },
+  card: { backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column' },
+  cardTitle: { fontSize: '14px', fontWeight: '600', color: '#cbd5e1', marginBottom: '20px', margin: 0, textAlign: 'left' },
+  iconBadge: { width: '44px', height: '44px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', marginBottom: '16px', flexShrink: 0 },
+  statValue: { fontSize: '24px', fontWeight: '600', fontFamily: 'monospace', color: '#f8fafc', margin: 0, textAlign: 'left' },
+  statLabel: { fontSize: '12px', color: '#64748b', marginTop: '2px', margin: 0, textAlign: 'left' },
+  progressTrack: { width: '100%', height: '6px', backgroundColor: '#1e293b', borderRadius: '9999px', overflow: 'hidden' },
+  progressBar: { height: '100%', borderRadius: '9999px', transition: 'width 0.5s ease-in-out' },
+  emptyText: { fontSize: '14px', color: '#475569', textAlign: 'center', padding: '32px 0', margin: 0 },
+  nativeChartWrapper: { display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '200px', padding: '10px 0', borderBottom: '1px solid #1e293b', gap: '12px' },
+  chartColumn: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' },
+  barsContainer: { display: 'flex', alignItems: 'flex-end', gap: '6px', width: '100%', height: '100%', justifyContent: 'center', marginBottom: '8px' },
+  nativeBar: { width: '16px', borderRadius: '4px 4px 0 0', transition: 'height 0.6s cubic-bezier(0.4, 0, 0.2, 1)' },
+  chartLabel: { fontSize: '11px', color: '#64748b', textAlign: 'center', marginTop: '4px', whiteSpace: 'nowrap' },
+  legendContainer: { display: 'flex', gap: '16px', marginTop: '16px', justifyContent: 'center' },
+  legendItem: { fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' },
+  legendDot: { width: '10px', height: '10px', borderRadius: '3px', display: 'inline-block' },
+  formRow: { display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', alignItems: 'flex-end' },
+  inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 200px', gap: '6px' },
+  label: { fontSize: '12px', color: '#94a3b8', fontWeight: '500', textAlign: 'left' },
+  input: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box' },
+  button: { backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', height: '42px', transition: 'background-color 0.2s' }
 };
 
 export default DashboardPage;
