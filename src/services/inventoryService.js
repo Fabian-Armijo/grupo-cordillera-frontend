@@ -1,5 +1,5 @@
 // Obtenemos la URL del Gateway desde las variables de entorno de Vite
-const API_URL = import.meta.env.VITE_API_GATEWAY_URL; 
+const API_URL = import.meta.env.VITE_BFF_URL; 
 
 export const getInventoryData = async () => {
   try {

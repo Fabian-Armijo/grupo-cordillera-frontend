@@ -1,11 +1,12 @@
 // Apuntamos al Gateway, que redirigirá al microservicio de Reportes
-const API_URL = 'http://localhost:8090/api/reportes';
+const API_URL = import.meta.env.VITE_BFF_URL || 'http://localhost:8086';
+const BASE_PATH = `${API_URL}/bff/reportes`;
 
 export const obtenerHistorialReportes = async () => {
     try {
         const token = localStorage.getItem('token');
         
-        const response = await fetch(`${API_URL}/historial`, {
+        const response = await fetch(`${BASE_PATH}/historial`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -25,7 +26,7 @@ export const obtenerHistorialReportes = async () => {
 export const descargarReporteAntiguo = async (id) => {
     try {
         const token = localStorage.getItem('token');
-        const url = `${API_URL}/historial/${id}/descargar`;
+        const url = `${BASE_PATH}/historial/${id}/descargar`;
         
         const response = await fetch(url, { 
             method: 'GET',
@@ -36,20 +37,15 @@ export const descargarReporteAntiguo = async (id) => {
         
         if (!response.ok) throw new Error('Error al descargar el PDF histórico');
         
-        // 1. Convertimos la respuesta a Blob (archivo binario)
         const blob = await response.blob();
-        
-        // 2. Creamos la URL temporal
         const blobUrl = window.URL.createObjectURL(blob);
         
-        // 3. Forzamos la descarga
         const enlace = document.createElement('a');
         enlace.href = blobUrl;
         enlace.download = `Reporte_Historico_Grupo_Cordillera_${id}.pdf`;
         document.body.appendChild(enlace);
         enlace.click();
         
-        // 4. Limpiamos la memoria
         enlace.remove();
         window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
@@ -61,7 +57,7 @@ export const descargarReporteAntiguo = async (id) => {
 export const generarYDescargarReporte = async (periodo) => {
     try {
         const token = localStorage.getItem('token');
-        const url = `${API_URL}/descargar?kpiId=1&sucursalId=1&periodo=${periodo}`;
+        const url = `${BASE_PATH}/descargar?kpiId=1&sucursalId=1&periodo=${periodo}`;
         
         const response = await fetch(url, { 
             method: 'GET',
@@ -72,20 +68,15 @@ export const generarYDescargarReporte = async (periodo) => {
         
         if (!response.ok) throw new Error('Error al generar el PDF');
         
-        // 1. Transformamos la respuesta en un archivo binario (Blob)
         const blob = await response.blob();
-        
-        // 2. Creamos una URL temporal en la memoria del navegador
         const blobUrl = window.URL.createObjectURL(blob);
         
-        // 3. Simulamos un clic en un enlace invisible para forzar la descarga
         const enlace = document.createElement('a');
         enlace.href = blobUrl;
         enlace.download = `Reporte_Cordillera_${periodo}.pdf`;
         document.body.appendChild(enlace);
         enlace.click();
         
-        // 4. Limpiamos la memoria
         enlace.remove();
         window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
@@ -97,7 +88,7 @@ export const generarYDescargarReporte = async (periodo) => {
 export const enviarReportePorCorreo = async (periodo, correoDestino) => {
     try {
         const token = localStorage.getItem('token');
-        const url = `${API_URL}/enviar?kpiId=1&sucursalId=1&periodo=${periodo}&correoDestino=${correoDestino}`;
+        const url = `${BASE_PATH}/enviar?kpiId=1&sucursalId=1&periodo=${periodo}&correoDestino=${correoDestino}`;
         
         const response = await fetch(url, { 
             method: 'POST',
@@ -108,7 +99,6 @@ export const enviarReportePorCorreo = async (periodo, correoDestino) => {
         
         if (!response.ok) throw new Error('Error al enviar el correo');
         
-        // El backend devuelve un String, no un JSON, así que usamos .text()
         return await response.text(); 
     } catch (error) {
         console.error("Error al enviar:", error);
@@ -119,7 +109,7 @@ export const enviarReportePorCorreo = async (periodo, correoDestino) => {
 export const obtenerUrlPrevisualizacion = async (periodo) => {
     try {
         const token = localStorage.getItem('token');
-        const url = `${API_URL}/previsualizar?kpiId=1&sucursalId=1&periodo=${periodo}`;
+        const url = `${BASE_PATH}/previsualizar?kpiId=1&sucursalId=1&periodo=${periodo}`;
         
         const response = await fetch(url, { 
             method: 'GET',
@@ -131,8 +121,6 @@ export const obtenerUrlPrevisualizacion = async (periodo) => {
         if (!response.ok) throw new Error('Error al previsualizar el PDF');
         
         const blob = await response.blob();
-        
-        // En lugar de descargar, devolvemos esta URL temporal para mostrarla en pantalla
         return window.URL.createObjectURL(blob);
     } catch (error) {
         console.error("Error al previsualizar:", error);

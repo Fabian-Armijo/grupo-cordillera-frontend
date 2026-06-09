@@ -63,7 +63,7 @@ export const DashboardPage = () => {
     try {
       const token = localStorage.getItem('token');
       // Aseguramos apuntar al Gateway, si la variable de entorno no existe, usamos el puerto 8090 por defecto
-      const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8090';
+      const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086/bff/kpis';
 
       // 1. Enviamos primero la Definición del KPI al backend
       const responseDefinicion = await fetch(`${API_URL}/api/kpi/definiciones`, {

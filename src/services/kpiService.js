@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_GATEWAY_URL;
+const API_URL = import.meta.env.VITE_BFF_URL;
 
 export const kpiService = {
   getDashboardMetrics: async () => {
