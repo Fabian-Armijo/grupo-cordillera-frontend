@@ -8,25 +8,24 @@ export const DashboardPage = () => {
   const loading = respuestaHook.loading || false;
   const error = respuestaHook.error || null;
 
-  // Estados locales para manejar la lista dinámica de KPIs y el formulario
   const [listaKpis, setListaKpis] = useState([]);
   const [chartData, setChartData] = useState([]);
-
-  // 🌟 ESTADOS LOCALES BLINDADOS: Inicialización limpia
   const [sucursales, setSucursales] = useState([]);
   const [sucursalSeleccionada, setSucursalSeleccionada] = useState('');
 
-  // Campos del nuevo formulario de creación
+  // Campos del formulario
   const [nombre, setNombre] = useState('');
   const [valorActual, setValorActual] = useState('');
   const [meta, setMeta] = useState('');
 
-  // 🚀 EFECTO CORREGIDO: Consume directamente el controlador de sucursales para pintar la BD real
+  // 🌟 NUEVO ESTADO: Captura la regla de cálculo elegida en la interfaz
+  const [tipoCalculo, setTipoCalculo] = useState('CONTAR_TRANSACCIONES');
+
+  // Carga inicial de sucursales directas
   useEffect(() => {
     const token = localStorage.getItem('token');
     const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
 
-    // 💡 SOLUCIÓN: Cambiamos la ruta antigua por /api/sucursales para saltar el BFF que venía vacío
     fetch(`${API_URL}/api/sucursales`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -38,10 +37,8 @@ export const DashboardPage = () => {
         return res.json();
       })
       .then(data => {
-        // Al apuntar al controlador directo, recibimos la List<SucursalResponseDto> nativa
         if (data && Array.isArray(data)) {
           setSucursales(data);
-          // Si tu base de datos tiene sucursales, pre-seleccionamos el ID de la primera
           if (data.length > 0) {
             setSucursalSeleccionada(String(data[0].id));
           }
@@ -52,14 +49,14 @@ export const DashboardPage = () => {
       });
   }, []);
 
-  // Sincroniza los datos iniciales que vienen del Hook
+  // Sincroniza datos iniciales del Hook
   useEffect(() => {
     if (kpisIniciales && Array.isArray(kpisIniciales) && kpisIniciales.length > 0) {
       setListaKpis(kpisIniciales);
     }
   }, [kpisIniciales]);
 
-  // Actualiza los gráficos nativos cada vez que muta o se añade un elemento a 'listaKpis'
+  // Actualiza los gráficos nativos por CSS
   useEffect(() => {
     if (listaKpis && Array.isArray(listaKpis) && listaKpis.length > 0) {
       const data = listaKpis.map(kpi => {
@@ -82,7 +79,7 @@ export const DashboardPage = () => {
     }
   }, [listaKpis]);
 
-  // Función asíncrona para guardar la nueva métrica en la base de datos real
+  // Guarda la nueva métrica con su tipo de cálculo correspondiente
   const handleCrearKpi = async (e) => {
     e.preventDefault();
 
@@ -100,7 +97,10 @@ export const DashboardPage = () => {
       const token = localStorage.getItem('token');
       const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
 
-      // 1. Enviamos primero la Definición del KPI al backend
+      // Definimos la unidad en base al comportamiento seleccionado
+      const unidadCalculada = tipoCalculo === 'CONTAR_TRANSACCIONES' ? 'Ventas' : 'Unidades';
+
+      // 1. Enviamos la Definición completa incorporando la regla de conteo
       const responseDefinicion = await fetch(`${API_URL}/api/kpi/definiciones`, {
         method: 'POST',
         headers: {
@@ -111,7 +111,8 @@ export const DashboardPage = () => {
           nombre: nombre,
           descripcion: `Meta global de ${nombre}`,
           valorObjetivo: Number(meta),
-          unidad: "U"
+          unidad: unidadCalculada,
+          tipoCalculo: tipoCalculo // 🌟 SE ENVÍA DIRECTO AL CAMPO @Column EN JAVA
         })
       });
 
@@ -121,7 +122,7 @@ export const DashboardPage = () => {
 
       const nuevaDefinicionGuardada = await responseDefinicion.json();
 
-      // 2. Si el usuario también ingresó un "Valor Actual", registramos su primera métrica amarrada a la sucursal
+      // 2. Si se ingresó un valor inicial, registra la primera métrica en caliente
       if (valorActual && Number(valorActual) > 0) {
         await fetch(`${API_URL}/api/kpi/metricas`, {
           method: 'POST',
@@ -131,21 +132,19 @@ export const DashboardPage = () => {
           },
           body: JSON.stringify({
             definicion: {
-              id: nuevaDefinicionGuardada.id // Mapea con @ManyToOne KpiDefinicion en Java
+              id: nuevaDefinicionGuardada.id
             },
-            // Enviamos el ID numérico de la sucursal real que seleccionó el usuario
             sucursalId: Number(sucursalSeleccionada),
             valorActual: Number(valorActual)
           })
         });
       }
 
-      // 3. Éxito: Limpiamos los inputs del formulario
       setNombre('');
       setValorActual('');
       setMeta('');
+      setTipoCalculo('CONTAR_TRANSACCIONES');
 
-      // 4. Forzamos una recarga para refrescar los componentes
       window.location.reload();
 
     } catch (err) {
@@ -189,13 +188,12 @@ export const DashboardPage = () => {
   return (
     <DashboardLayout>
       <div style={styles.container}>
-        {/* Header */}
         <div style={{ marginBottom: '32px' }}>
           <h1 style={styles.title}>Dashboard de KPIs</h1>
           <p style={styles.subtitle}>Resumen general y definición de indicadores de desempeño en tiempo real</p>
         </div>
 
-        {/* FORMULARIO DE CREACIÓN DE MÉTRICAS */}
+        {/* FORMULARIO DE CREACIÓN ACTUALIZADO */}
         <div style={{ ...styles.card, marginBottom: '24px' }}>
           <h2 style={styles.cardTitle}>➕ Definir Nueva Métrica / KPI</h2>
           <form onSubmit={handleCrearKpi} style={styles.formRow}>
@@ -204,14 +202,13 @@ export const DashboardPage = () => {
               <label style={styles.label}>Nombre de la Métrica</label>
               <input
                 type="text"
-                placeholder="Ej: Retención de Clientes"
+                placeholder="Ej: Total de Facturaciones"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 style={styles.input}
               />
             </div>
 
-            {/* 💡 CONTROL INTEGRADO: Selector de Sucursales dinámico */}
             <div style={styles.inputGroup}>
               <label style={styles.label}>Sucursal Destino</label>
               <select
@@ -220,7 +217,6 @@ export const DashboardPage = () => {
                 style={styles.selectInput}
               >
                 <option value="" disabled>Seleccione una sucursal...</option>
-
                 {sucursales.length === 0 ? (
                   <option value="" disabled>CARGANDO SUCURSALES...</option>
                 ) : (
@@ -230,6 +226,19 @@ export const DashboardPage = () => {
                     </option>
                   ))
                 )}
+              </select>
+            </div>
+
+            {/* 🌟 NUEVO SELECTOR: Define el comportamiento universal del KPI */}
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>¿Qué medirá este KPI?</label>
+              <select
+                value={tipoCalculo}
+                onChange={(e) => setTipoCalculo(e.target.value)}
+                style={styles.selectInput}
+              >
+                <option value="CONTAR_TRANSACCIONES">Contar Transacciones (1 por Boleta global)</option>
+                <option value="SUMAR_PRODUCTOS">Sumar Productos (Volumen total de ítems)</option>
               </select>
             </div>
 
@@ -261,6 +270,13 @@ export const DashboardPage = () => {
               </button>
             </div>
           </form>
+
+          {/* Pequeña leyenda de ayuda contextual en el formulario */}
+          <p style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', textAlign: 'left', margin: '12px 0 0 0' }}>
+            {tipoCalculo === 'CONTAR_TRANSACCIONES'
+              ? '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará únicamente +1.'
+              : '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará el volumen físico total de unidades.'}
+          </p>
         </div>
 
         {/* Stats Grid */}
@@ -278,7 +294,6 @@ export const DashboardPage = () => {
 
         {/* Row de Contenedores Visuales */}
         <div style={styles.chartsGrid}>
-          {/* GRÁFICO DE BARRAS NATIVO CON CSS */}
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>Promedio vs Objetivo por KPI</h2>
             {chartData.length === 0 ? (
@@ -318,13 +333,12 @@ export const DashboardPage = () => {
             )}
           </div>
 
-          {/* Lista de progreso de estados */}
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>Estado de KPIs</h2>
             {chartData.length === 0 ? (
               <p style={styles.emptyText}>No hay KPIs registrados para calcular progreso</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexType: 'column', flexDirection: 'column', gap: '16px' }}>
                 {chartData.map((kpi, i) => {
                   const metaKpi = kpi.objetivo > 0 ? kpi.objetivo : 100;
                   const pct = Math.min(100, Math.round((kpi.promedio / metaKpi) * 100));
@@ -353,7 +367,6 @@ export const DashboardPage = () => {
   );
 };
 
-// MAPA DE ESTILOS INLINE
 const styles = {
   container: { backgroundColor: '#020617', padding: '12px 0', fontFamily: "'Segoe UI', Roboto, sans-serif", color: '#f1f5f9', boxSizing: 'border-box' },
   centerContainer: { minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
@@ -378,7 +391,7 @@ const styles = {
   legendItem: { fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' },
   legendDot: { width: '10px', height: '10px', borderRadius: '3px', display: 'inline-block' },
   formRow: { display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', alignItems: 'flex-end' },
-  inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 180px', gap: '6px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 150px', gap: '6px' }, // Reducido un poco el flex-basis para que quepan holgados los 5 inputs
   label: { fontSize: '12px', color: '#94a3b8', fontWeight: '500', textAlign: 'left' },
   input: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box' },
   selectInput: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box', cursor: 'pointer' },
