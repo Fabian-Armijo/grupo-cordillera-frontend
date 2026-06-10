@@ -12,10 +12,45 @@ export const DashboardPage = () => {
   const [listaKpis, setListaKpis] = useState([]);
   const [chartData, setChartData] = useState([]);
 
+  // 🌟 ESTADOS LOCALES BLINDADOS: Inicialización limpia
+  const [sucursales, setSucursales] = useState([]);
+  const [sucursalSeleccionada, setSucursalSeleccionada] = useState('');
+
   // Campos del nuevo formulario de creación
   const [nombre, setNombre] = useState('');
   const [valorActual, setValorActual] = useState('');
   const [meta, setMeta] = useState('');
+
+  // 🚀 EFECTO CORREGIDO: Consume directamente el controlador de sucursales para pintar la BD real
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
+
+    // 💡 SOLUCIÓN: Cambiamos la ruta antigua por /api/sucursales para saltar el BFF que venía vacío
+    fetch(`${API_URL}/api/sucursales`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('No se pudieron obtener las sucursales');
+        return res.json();
+      })
+      .then(data => {
+        // Al apuntar al controlador directo, recibimos la List<SucursalResponseDto> nativa
+        if (data && Array.isArray(data)) {
+          setSucursales(data);
+          // Si tu base de datos tiene sucursales, pre-seleccionamos el ID de la primera
+          if (data.length > 0) {
+            setSucursalSeleccionada(String(data[0].id));
+          }
+        }
+      })
+      .catch(err => {
+        console.error("Error al cargar sucursales en el Dashboard:", err);
+      });
+  }, []);
 
   // Sincroniza los datos iniciales que vienen del Hook
   useEffect(() => {
@@ -28,15 +63,11 @@ export const DashboardPage = () => {
   useEffect(() => {
     if (listaKpis && Array.isArray(listaKpis) && listaKpis.length > 0) {
       const data = listaKpis.map(kpi => {
-        
-        // 🌟 LA MAGIA: Buscamos el valor en el arreglo de métricas que manda el BFF
         let valorCalculado = 0;
         if (kpi.metricas && kpi.metricas.length > 0) {
-          // Viene del Backend (PostgreSQL / BFF)
           valorCalculado = kpi.metricas[0].valorActual || 0;
         } else if (kpi.valorActual) {
-          // Viene del formulario local recién creado en la vista
-          valorCalculado = kpi.valorActual; 
+          valorCalculado = kpi.valorActual;
         }
 
         return {
@@ -60,10 +91,14 @@ export const DashboardPage = () => {
       return;
     }
 
+    if (!sucursalSeleccionada) {
+      alert("Es obligatorio seleccionar una Sucursal válida para registrar la métrica.");
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      // Aseguramos apuntar al Gateway, si la variable de entorno no existe, usamos el puerto 8090 por defecto
-      const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086/bff/kpis';
+      const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
 
       // 1. Enviamos primero la Definición del KPI al backend
       const responseDefinicion = await fetch(`${API_URL}/api/kpi/definiciones`, {
@@ -86,7 +121,7 @@ export const DashboardPage = () => {
 
       const nuevaDefinicionGuardada = await responseDefinicion.json();
 
-      // 2. Si el usuario también ingresó un "Valor Actual", registramos su primera métrica
+      // 2. Si el usuario también ingresó un "Valor Actual", registramos su primera métrica amarrada a la sucursal
       if (valorActual && Number(valorActual) > 0) {
         await fetch(`${API_URL}/api/kpi/metricas`, {
           method: 'POST',
@@ -96,9 +131,10 @@ export const DashboardPage = () => {
           },
           body: JSON.stringify({
             definicion: {
-              id: nuevaDefinicionGuardada.id // Vinculamos la métrica al ID real de la BD
+              id: nuevaDefinicionGuardada.id // Mapea con @ManyToOne KpiDefinicion en Java
             },
-            sucursalId: null, // Dato global
+            // Enviamos el ID numérico de la sucursal real que seleccionó el usuario
+            sucursalId: Number(sucursalSeleccionada),
             valorActual: Number(valorActual)
           })
         });
@@ -108,8 +144,8 @@ export const DashboardPage = () => {
       setNombre('');
       setValorActual('');
       setMeta('');
-      
-      // 4. Forzamos una recarga para que el hook 'useKpis' consulte de nuevo la base de datos
+
+      // 4. Forzamos una recarga para refrescar los componentes
       window.location.reload();
 
     } catch (err) {
@@ -123,7 +159,7 @@ export const DashboardPage = () => {
       <DashboardLayout>
         <div style={styles.centerContainer}>
           <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}></div>
-          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>Cargando métricas...</p>
+          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>Cargando métricas y sucursales...</p>
         </div>
       </DashboardLayout>
     );
@@ -163,6 +199,7 @@ export const DashboardPage = () => {
         <div style={{ ...styles.card, marginBottom: '24px' }}>
           <h2 style={styles.cardTitle}>➕ Definir Nueva Métrica / KPI</h2>
           <form onSubmit={handleCrearKpi} style={styles.formRow}>
+
             <div style={styles.inputGroup}>
               <label style={styles.label}>Nombre de la Métrica</label>
               <input
@@ -173,8 +210,31 @@ export const DashboardPage = () => {
                 style={styles.input}
               />
             </div>
+
+            {/* 💡 CONTROL INTEGRADO: Selector de Sucursales dinámico */}
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Valor Actual</label>
+              <label style={styles.label}>Sucursal Destino</label>
+              <select
+                value={sucursalSeleccionada || ''}
+                onChange={(e) => setSucursalSeleccionada(e.target.value)}
+                style={styles.selectInput}
+              >
+                <option value="" disabled>Seleccione una sucursal...</option>
+
+                {sucursales.length === 0 ? (
+                  <option value="" disabled>CARGANDO SUCURSALES...</option>
+                ) : (
+                  sucursales.map((suc) => (
+                    <option key={suc.id} value={suc.id}>
+                      {suc.nombre || `Sucursal ${suc.id}`}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Valor Inicial</label>
               <input
                 type="number"
                 placeholder="0"
@@ -183,6 +243,7 @@ export const DashboardPage = () => {
                 style={styles.input}
               />
             </div>
+
             <div style={styles.inputGroup}>
               <label style={styles.label}>Meta / Objetivo</label>
               <input
@@ -193,6 +254,7 @@ export const DashboardPage = () => {
                 style={styles.input}
               />
             </div>
+
             <div style={{ ...styles.inputGroup, justifyContent: 'flex-end' }}>
               <button type="submit" style={styles.button}>
                 Crear Métrica
@@ -216,7 +278,6 @@ export const DashboardPage = () => {
 
         {/* Row de Contenedores Visuales */}
         <div style={styles.chartsGrid}>
-
           {/* GRÁFICO DE BARRAS NATIVO CON CSS */}
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>Promedio vs Objetivo por KPI</h2>
@@ -232,12 +293,10 @@ export const DashboardPage = () => {
                   return (
                     <div key={index} style={styles.chartColumn}>
                       <div style={styles.barsContainer}>
-                        {/* Barra Promedio (Azul) */}
                         <div
                           title={`Promedio actual: ${kpi.promedio}`}
                           style={{ ...styles.nativeBar, height: `${alturaPromedio}%`, backgroundColor: '#3b82f6' }}
                         />
-                        {/* Barra Objetivo (Verde) */}
                         <div
                           title={`Valor objetivo: ${kpi.objetivo}`}
                           style={{ ...styles.nativeBar, height: `${alturaObjetivo}%`, backgroundColor: '#10b981' }}
@@ -251,7 +310,6 @@ export const DashboardPage = () => {
                 })}
               </div>
             )}
-            {/* Leyenda simple */}
             {chartData.length > 0 && (
               <div style={styles.legendContainer}>
                 <div style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#3b82f6'}} /> Promedio actual</div>
@@ -320,9 +378,10 @@ const styles = {
   legendItem: { fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' },
   legendDot: { width: '10px', height: '10px', borderRadius: '3px', display: 'inline-block' },
   formRow: { display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', alignItems: 'flex-end' },
-  inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 200px', gap: '6px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 180px', gap: '6px' },
   label: { fontSize: '12px', color: '#94a3b8', fontWeight: '500', textAlign: 'left' },
   input: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box' },
+  selectInput: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box', cursor: 'pointer' },
   button: { backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', height: '42px', transition: 'background-color 0.2s' }
 };
 

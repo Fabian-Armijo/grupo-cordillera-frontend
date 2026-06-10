@@ -1,7 +1,7 @@
 // src/services/authService.js
 
 // Apuntamos al API Gateway, que redirigirá la petición al ms-autenticacion
-const API_URL = 'http://localhost:8090/api/auth';
+const API_URL = 'http://localhost:8086/api/auth';
 
 export const loginUsuario = async (username, password) => {
     try {
