@@ -1,6 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Importamos el servicio que acabamos de crear
 import { loginUsuario } from '../services/authService';
 
 export const LoginPage = () => {
@@ -15,17 +15,23 @@ export const LoginPage = () => {
         setCargando(true);
 
         try {
-            // 1. Usamos nuestro servicio limpio
+            // 1. Intentamos el login contra el BFF
             const data = await loginUsuario(credenciales.username, credenciales.password);
 
-            // 2. Guardamos el token en la memoria del navegador
+            // 2. Guardamos en localStorage en todos los formatos posibles para que cualquier componente lo encuentre
             localStorage.setItem('token', data.token);
-
-            // 3. (Opcional) Podemos guardar también el nombre de usuario para mostrarlo en la navbar
             localStorage.setItem('username', data.username);
 
-            // 4. ¡Acceso concedido! Redirigimos al Dashboard o Reportes
+            // Guardamos el objeto plano y también envuelto por si acaso
+            localStorage.setItem('user', JSON.stringify(data));
+
+            // 3. Redirigimos a reportes
             navigate('/reportes');
+
+            // 🚨 EL TRUCO MÁGICO: Forzamos una recarga completa del navegador.
+            // Al recargar la URL de destino, todo el árbol de React se vuelve a montar
+            // limpiando los estados nulos colgados en memoria.
+            window.location.reload();
 
         } catch (err) {
             setError(err.message);
@@ -39,27 +45,27 @@ export const LoginPage = () => {
             <div className="card shadow-sm">
                 <div className="card-body p-4">
                     <h3 className="text-center mb-4">🔑 Iniciar Sesión</h3>
-                    
+
                     {error && <div className="alert alert-danger">{error}</div>}
-                    
+
                     <form onSubmit={handleLogin}>
                         <div className="mb-3">
                             <label className="form-label text-muted fw-bold">Usuario</label>
-                            <input 
-                                type="text" 
-                                className="form-control" 
-                                placeholder="ej: gabriel.admin"
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="ej: prueba"
                                 value={credenciales.username}
                                 onChange={(e) => setCredenciales({...credenciales, username: e.target.value})}
                                 required
                             />
                         </div>
-                        
+
                         <div className="mb-4">
                             <label className="form-label text-muted fw-bold">Contraseña</label>
-                            <input 
-                                type="password" 
-                                className="form-control" 
+                            <input
+                                type="password"
+                                className="form-control"
                                 placeholder="******"
                                 value={credenciales.password}
                                 onChange={(e) => setCredenciales({...credenciales, password: e.target.value})}
@@ -67,8 +73,8 @@ export const LoginPage = () => {
                             />
                         </div>
 
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             className="btn btn-primary w-100"
                             disabled={cargando}
                         >

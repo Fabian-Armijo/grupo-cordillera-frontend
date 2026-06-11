@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useKpis } from '../hooks/useKpis';
 import { DashboardLayout } from '../components/templates/DashboardLayout';
+import { useAuth } from '../components/context/AuthContext.jsx'; // 1. Importamos el contexto global
 
 export const DashboardPage = () => {
+  // 2. Extraemos el rol del usuario actual
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   const respuestaHook = useKpis() || {};
   const kpisIniciales = respuestaHook.kpis || respuestaHook.data || [];
   const loading = respuestaHook.loading || false;
@@ -17,9 +22,24 @@ export const DashboardPage = () => {
   const [nombre, setNombre] = useState('');
   const [valorActual, setValorActual] = useState('');
   const [meta, setMeta] = useState('');
-
-  // 🌟 NUEVO ESTADO: Captura la regla de cálculo elegida en la interfaz
   const [tipoCalculo, setTipoCalculo] = useState('CONTAR_TRANSACCIONES');
+
+  // REGLA DE SEGURIDAD 1: Bloqueo de página completa para el rol OPERATIVO (USUARIO)
+  const rolesPermitidosPagina = ['ADMIN', 'GERENTE'];
+  if (!rolesPermitidosPagina.includes(userRole)) {
+    return (
+        <DashboardLayout>
+          <div style={{ ...styles.centerContainer, backgroundColor: '#020617', height: '80vh' }}>
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '24px 40px', borderRadius: '12px', textAlign: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '20px' }}>🚫 Acceso Restringido</h3>
+              <p style={{ color: '#64748b', fontSize: '14px', marginTop: '8px', margin: '8px 0 0 0' }}>
+                No tienes autorizaciones de gestión para visualizar el panel de KPIs.
+              </p>
+            </div>
+          </div>
+        </DashboardLayout>
+    );
+  }
 
   // Carga inicial de sucursales directas
   useEffect(() => {
@@ -32,21 +52,21 @@ export const DashboardPage = () => {
         'Content-Type': 'application/json'
       }
     })
-      .then(res => {
-        if (!res.ok) throw new Error('No se pudieron obtener las sucursales');
-        return res.json();
-      })
-      .then(data => {
-        if (data && Array.isArray(data)) {
-          setSucursales(data);
-          if (data.length > 0) {
-            setSucursalSeleccionada(String(data[0].id));
+        .then(res => {
+          if (!res.ok) throw new Error('No se pudieron obtener las sucursales');
+          return res.json();
+        })
+        .then(data => {
+          if (data && Array.isArray(data)) {
+            setSucursales(data);
+            if (data.length > 0) {
+              setSucursalSeleccionada(String(data[0].id));
+            }
           }
-        }
-      })
-      .catch(err => {
-        console.error("Error al cargar sucursales en el Dashboard:", err);
-      });
+        })
+        .catch(err => {
+          console.error("Error al cargar sucursales en el Dashboard:", err);
+        });
   }, []);
 
   // Sincroniza datos iniciales del Hook
@@ -79,9 +99,14 @@ export const DashboardPage = () => {
     }
   }, [listaKpis]);
 
-  // Guarda la nueva métrica con su tipo de cálculo correspondiente
   const handleCrearKpi = async (e) => {
     e.preventDefault();
+
+    // Doble verificación en Frontend por seguridad
+    if (userRole !== 'ADMIN') {
+      alert("Tu rol no tiene autorización para realizar esta acción.");
+      return;
+    }
 
     if (!nombre.trim() || !meta) {
       alert("Por favor rellena al menos el Nombre y la Meta para definir la métrica.");
@@ -96,11 +121,8 @@ export const DashboardPage = () => {
     try {
       const token = localStorage.getItem('token');
       const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
-
-      // Definimos la unidad en base al comportamiento seleccionado
       const unidadCalculada = tipoCalculo === 'CONTAR_TRANSACCIONES' ? 'Ventas' : 'Unidades';
 
-      // 1. Enviamos la Definición completa incorporando la regla de conteo
       const responseDefinicion = await fetch(`${API_URL}/api/kpi/definiciones`, {
         method: 'POST',
         headers: {
@@ -112,17 +134,13 @@ export const DashboardPage = () => {
           descripcion: `Meta global de ${nombre}`,
           valorObjetivo: Number(meta),
           unidad: unidadCalculada,
-          tipoCalculo: tipoCalculo // 🌟 SE ENVÍA DIRECTO AL CAMPO @Column EN JAVA
+          tipoCalculo: tipoCalculo
         })
       });
 
-      if (!responseDefinicion.ok) {
-        throw new Error('No se pudo guardar la definición del KPI en el servidor');
-      }
-
+      if (!responseDefinicion.ok) throw new Error('No se pudo guardar la definición del KPI');
       const nuevaDefinicionGuardada = await responseDefinicion.json();
 
-      // 2. Si se ingresó un valor inicial, registra la primera métrica en caliente
       if (valorActual && Number(valorActual) > 0) {
         await fetch(`${API_URL}/api/kpi/metricas`, {
           method: 'POST',
@@ -131,9 +149,7 @@ export const DashboardPage = () => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            definicion: {
-              id: nuevaDefinicionGuardada.id
-            },
+            definicion: { id: nuevaDefinicionGuardada.id },
             sucursalId: Number(sucursalSeleccionada),
             valorActual: Number(valorActual)
           })
@@ -144,35 +160,34 @@ export const DashboardPage = () => {
       setValorActual('');
       setMeta('');
       setTipoCalculo('CONTAR_TRANSACCIONES');
-
       window.location.reload();
 
     } catch (err) {
-      console.error("Error al crear el KPI en el ecosistema:", err);
-      alert("Hubo un error al comunicar con el microservicio de KPIs: " + err.message);
+      console.error("Error al crear el KPI:", err);
+      alert("Hubo un error al comunicar con el microservicio: " + err.message);
     }
   };
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div style={styles.centerContainer}>
-          <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}></div>
-          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>Cargando métricas y sucursales...</p>
-        </div>
-      </DashboardLayout>
+        <DashboardLayout>
+          <div style={styles.centerContainer}>
+            <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}></div>
+            <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>Cargando métricas y sucursales...</p>
+          </div>
+        </DashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div style={styles.centerContainer}>
-          <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '16px 24px', borderRadius: '8px' }}>
-            <strong>⚠️ Error:</strong> {String(error)}
+        <DashboardLayout>
+          <div style={styles.centerContainer}>
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '16px 24px', borderRadius: '8px' }}>
+              <strong>⚠️ Error:</strong> {String(error)}
+            </div>
           </div>
-        </div>
-      </DashboardLayout>
+        </DashboardLayout>
     );
   }
 
@@ -186,187 +201,144 @@ export const DashboardPage = () => {
   ];
 
   return (
-    <DashboardLayout>
-      <div style={styles.container}>
-        <div style={{ marginBottom: '32px' }}>
-          <h1 style={styles.title}>Dashboard de KPIs</h1>
-          <p style={styles.subtitle}>Resumen general y definición de indicadores de desempeño en tiempo real</p>
-        </div>
+      <DashboardLayout>
+        <div style={styles.container}>
+          <div style={{ marginBottom: '32px' }}>
+            <h1 style={styles.title}>Dashboard de KPIs</h1>
+            <p style={styles.subtitle}>Resumen general y definición de indicadores de desempeño en tiempo real</p>
+          </div>
 
-        {/* FORMULARIO DE CREACIÓN ACTUALIZADO */}
-        <div style={{ ...styles.card, marginBottom: '24px' }}>
-          <h2 style={styles.cardTitle}>➕ Definir Nueva Métrica / KPI</h2>
-          <form onSubmit={handleCrearKpi} style={styles.formRow}>
+          {/* 🌟 REGLA DE SEGURIDAD 2: El formulario de creación SOLO se renderiza si eres ADMIN */}
+          {userRole === 'ADMIN' && (
+              <div style={{ ...styles.card, marginBottom: '24px' }}>
+                <h2 style={styles.cardTitle}>➕ Definir Nueva Métrica / KPI</h2>
+                <form onSubmit={handleCrearKpi} style={styles.formRow}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Nombre de la Métrica</label>
+                    <input type="text" placeholder="Ej: Total de Facturaciones" value={nombre} onChange={(e) => setNombre(e.target.value)} style={styles.input} />
+                  </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Nombre de la Métrica</label>
-              <input
-                type="text"
-                placeholder="Ej: Total de Facturaciones"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                style={styles.input}
-              />
-            </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Sucursal Destino</label>
+                    <select value={sucursalSeleccionada || ''} onChange={(e) => setSucursalSeleccionada(e.target.value)} style={styles.selectInput}>
+                      <option value="" disabled>Seleccione una sucursal...</option>
+                      {sucursales.map((suc) => <option key={suc.id} value={suc.id}>{suc.nombre || `Sucursal ${suc.id}`}</option>)}
+                    </select>
+                  </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Sucursal Destino</label>
-              <select
-                value={sucursalSeleccionada || ''}
-                onChange={(e) => setSucursalSeleccionada(e.target.value)}
-                style={styles.selectInput}
-              >
-                <option value="" disabled>Seleccione una sucursal...</option>
-                {sucursales.length === 0 ? (
-                  <option value="" disabled>CARGANDO SUCURSALES...</option>
-                ) : (
-                  sucursales.map((suc) => (
-                    <option key={suc.id} value={suc.id}>
-                      {suc.nombre || `Sucursal ${suc.id}`}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>¿Qué medirá este KPI?</label>
+                    <select value={tipoCalculo} onChange={(e) => setTipoCalculo(e.target.value)} style={styles.selectInput}>
+                      <option value="CONTAR_TRANSACCIONES">Contar Transacciones (1 por Boleta global)</option>
+                      <option value="SUMAR_PRODUCTOS">Sumar Productos (Volumen total de ítems)</option>
+                    </select>
+                  </div>
 
-            {/* 🌟 NUEVO SELECTOR: Define el comportamiento universal del KPI */}
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>¿Qué medirá este KPI?</label>
-              <select
-                value={tipoCalculo}
-                onChange={(e) => setTipoCalculo(e.target.value)}
-                style={styles.selectInput}
-              >
-                <option value="CONTAR_TRANSACCIONES">Contar Transacciones (1 por Boleta global)</option>
-                <option value="SUMAR_PRODUCTOS">Sumar Productos (Volumen total de ítems)</option>
-              </select>
-            </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Valor Inicial</label>
+                    <input type="number" placeholder="0" value={valorActual} onChange={(e) => setValorActual(e.target.value)} style={styles.input} />
+                  </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Valor Inicial</label>
-              <input
-                type="number"
-                placeholder="0"
-                value={valorActual}
-                onChange={(e) => setValorActual(e.target.value)}
-                style={styles.input}
-              />
-            </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Meta / Objetivo</label>
+                    <input type="number" placeholder="100" value={meta} onChange={(e) => setMeta(e.target.value)} style={styles.input} />
+                  </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Meta / Objetivo</label>
-              <input
-                type="number"
-                placeholder="100"
-                value={meta}
-                onChange={(e) => setMeta(e.target.value)}
-                style={styles.input}
-              />
-            </div>
-
-            <div style={{ ...styles.inputGroup, justifyContent: 'flex-end' }}>
-              <button type="submit" style={styles.button}>
-                Crear Métrica
-              </button>
-            </div>
-          </form>
-
-          {/* Pequeña leyenda de ayuda contextual en el formulario */}
-          <p style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', textAlign: 'left', margin: '12px 0 0 0' }}>
-            {tipoCalculo === 'CONTAR_TRANSACCIONES'
-              ? '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará únicamente +1.'
-              : '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará el volumen físico total de unidades.'}
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div style={styles.statsGrid}>
-          {stats.map(({ label, value, icon, color, bg }) => (
-            <div key={label} style={styles.card}>
-              <div style={{ ...styles.iconBadge, backgroundColor: bg, color: color }}>{icon}</div>
-              <div>
-                <p style={styles.statValue}>{value}</p>
-                <p style={styles.statLabel}>{label}</p>
+                  <div style={{ ...styles.inputGroup, justifyContent: 'flex-end' }}>
+                    <button type="submit" style={styles.button}>Crear Métrica</button>
+                  </div>
+                </form>
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', textAlign: 'left', margin: '12px 0 0 0' }}>
+                  {tipoCalculo === 'CONTAR_TRANSACCIONES'
+                      ? '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará únicamente +1.'
+                      : '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará el volumen físico total de unidades.'}
+                </p>
               </div>
-            </div>
-          ))}
-        </div>
+          )}
 
-        {/* Row de Contenedores Visuales */}
-        <div style={styles.chartsGrid}>
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Promedio vs Objetivo por KPI</h2>
-            {chartData.length === 0 ? (
-              <p style={styles.emptyText}>Sin datos disponibles</p>
-            ) : (
-              <div style={styles.nativeChartWrapper}>
-                {chartData.map((kpi, index) => {
-                  const maxValor = Math.max(...chartData.map(k => Math.max(k.promedio, k.objetivo)), 1);
-                  const alturaPromedio = Math.min(100, Math.max(10, (kpi.promedio / maxValor) * 100));
-                  const alturaObjetivo = Math.min(100, Math.max(10, (kpi.objetivo / maxValor) * 100));
+          {/* Stats Grid - Visible para Admin y Gerente */}
+          <div style={styles.statsGrid}>
+            {stats.map(({ label, value, icon, color, bg }) => (
+                <div key={label} style={styles.card}>
+                  <div style={{ ...styles.iconBadge, backgroundColor: bg, color: color }}>{icon}</div>
+                  <div>
+                    <p style={styles.statValue}>{value}</p>
+                    <p style={styles.statLabel}>{label}</p>
+                  </div>
+                </div>
+            ))}
+          </div>
 
-                  return (
-                    <div key={index} style={styles.chartColumn}>
-                      <div style={styles.barsContainer}>
-                        <div
-                          title={`Promedio actual: ${kpi.promedio}`}
-                          style={{ ...styles.nativeBar, height: `${alturaPromedio}%`, backgroundColor: '#3b82f6' }}
-                        />
-                        <div
-                          title={`Valor objetivo: ${kpi.objetivo}`}
-                          style={{ ...styles.nativeBar, height: `${alturaObjetivo}%`, backgroundColor: '#10b981' }}
-                        />
-                      </div>
-                      <span style={styles.chartLabel} title={kpi.nombre}>
+          {/* Row de Contenedores Visuales - Visible para Admin y Gerente */}
+          <div style={styles.chartsGrid}>
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>Promedio vs Objetivo por KPI</h2>
+              {chartData.length === 0 ? (
+                  <p style={styles.emptyText}>Sin datos disponibles</p>
+              ) : (
+                  <div style={styles.nativeChartWrapper}>
+                    {chartData.map((kpi, index) => {
+                      const maxValor = Math.max(...chartData.map(k => Math.max(k.promedio, k.objetivo)), 1);
+                      const alturaPromedio = Math.min(100, Math.max(10, (kpi.promedio / maxValor) * 100));
+                      const alturaObjetivo = Math.min(100, Math.max(10, (kpi.objetivo / maxValor) * 100));
+
+                      return (
+                          <div key={index} style={styles.chartColumn}>
+                            <div style={styles.barsContainer}>
+                              <div title={`Promedio actual: ${kpi.promedio}`} style={{ ...styles.nativeBar, height: `${alturaPromedio}%`, backgroundColor: '#3b82f6' }} />
+                              <div title={`Valor objetivo: ${kpi.objetivo}`} style={{ ...styles.nativeBar, height: `${alturaObjetivo}%`, backgroundColor: '#10b981' }} />
+                            </div>
+                            <span style={styles.chartLabel} title={kpi.nombre}>
                         {kpi.nombre.length > 10 ? `${kpi.nombre.substring(0, 8)}..` : kpi.nombre}
                       </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {chartData.length > 0 && (
-              <div style={styles.legendContainer}>
-                <div style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#3b82f6'}} /> Promedio actual</div>
-                <div style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#10b981'}} /> Valor objetivo</div>
-              </div>
-            )}
-          </div>
+                          </div>
+                      );
+                    })}
+                  </div>
+              )}
+              {chartData.length > 0 && (
+                  <div style={styles.legendContainer}>
+                    <div style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#3b82f6'}} /> Promedio actual</div>
+                    <div style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#10b981'}} /> Valor objetivo</div>
+                  </div>
+              )}
+            </div>
 
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Estado de KPIs</h2>
-            {chartData.length === 0 ? (
-              <p style={styles.emptyText}>No hay KPIs registrados para calcular progreso</p>
-            ) : (
-              <div style={{ display: 'flex', flexType: 'column', flexDirection: 'column', gap: '16px' }}>
-                {chartData.map((kpi, i) => {
-                  const metaKpi = kpi.objetivo > 0 ? kpi.objetivo : 100;
-                  const pct = Math.min(100, Math.round((kpi.promedio / metaKpi) * 100));
-                  const barColor = pct >= 100 ? '#10b981' : pct >= 60 ? '#3b82f6' : '#f59e0b';
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>Estado de KPIs</h2>
+              {chartData.length === 0 ? (
+                  <p style={styles.emptyText}>No hay KPIs registrados para calcular progreso</p>
+              ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {chartData.map((kpi, i) => {
+                      const metaKpi = kpi.objetivo > 0 ? kpi.objetivo : 100;
+                      const pct = Math.min(100, Math.round((kpi.promedio / metaKpi) * 100));
+                      const barColor = pct >= 100 ? '#10b981' : pct >= 60 ? '#3b82f6' : '#f59e0b';
 
-                  return (
-                    <div key={i}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '14px', color: '#cbd5e1', fontWeight: '500', textAlign: 'left' }}>{kpi.nombre}</span>
-                        <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#64748b' }}>
+                      return (
+                          <div key={i}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '14px', color: '#cbd5e1', fontWeight: '500', textAlign: 'left' }}>{kpi.nombre}</span>
+                              <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#64748b' }}>
                           {kpi.promedio} / {kpi.objetivo}
                         </span>
-                      </div>
-                      <div style={styles.progressTrack}>
-                        <div style={{ ...styles.progressBar, width: `${pct}%`, backgroundColor: barColor }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                            </div>
+                            <div style={styles.progressTrack}>
+                              <div style={{ ...styles.progressBar, width: `${pct}%`, backgroundColor: barColor }} />
+                            </div>
+                          </div>
+                      );
+                    })}
+                  </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </DashboardLayout>
+      </DashboardLayout>
   );
 };
 
+// ... Mantienes tus estilos constantes abajo exactamente igual
 const styles = {
   container: { backgroundColor: '#020617', padding: '12px 0', fontFamily: "'Segoe UI', Roboto, sans-serif", color: '#f1f5f9', boxSizing: 'border-box' },
   centerContainer: { minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
@@ -391,7 +363,7 @@ const styles = {
   legendItem: { fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' },
   legendDot: { width: '10px', height: '10px', borderRadius: '3px', display: 'inline-block' },
   formRow: { display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', alignItems: 'flex-end' },
-  inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 150px', gap: '6px' }, // Reducido un poco el flex-basis para que quepan holgados los 5 inputs
+  inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 150px', gap: '6px' },
   label: { fontSize: '12px', color: '#94a3b8', fontWeight: '500', textAlign: 'left' },
   input: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box' },
   selectInput: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box', cursor: 'pointer' },
