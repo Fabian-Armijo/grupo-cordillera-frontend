@@ -2,9 +2,10 @@ import React from 'react';
 import { DashboardLayout } from '../components/templates/DashboardLayout';
 import { HistorialReportes } from '../components/organisms/HistorialReportes';
 import { FormularioReporte } from '../components/organisms/FormularioReporte';
+import { useHistorialReportes } from '../hooks/useHistorialReportes';
 
 export const ReportesPage = () => {
-    // 1. LEEMOS DIRECTAMENTE DEL LOCALSTORAGE (Sin usar useAuth para que no falle)
+    // 1. LEEMOS DIRECTAMENTE DEL LOCALSTORAGE
     let user = null;
     const localUser = localStorage.getItem('user');
 
@@ -16,22 +17,28 @@ export const ReportesPage = () => {
         }
     }
 
-    // 2. Extraemos los roles buscando en todas las estructuras posibles que devuelva tu backend
+    // 🏢 EXTRAEMOS EL SUCURSAL ID
+    const userSucursalId = user?.sucursalId || user?.user?.sucursalId || null;
+
+    // 2. Extraemos y normalizamos los roles
     const rolesDelUsuario = user?.roles ||
         (user?.user?.roles) ||
         (user?.role ? [user.role] : []) ||
         (user?.user?.role ? [user.user.role] : []);
 
-    // Convertimos todo a mayúsculas para evitar problemas de minúsculas/mayúsculas
     const rolesNormalizados = rolesDelUsuario.map(r => String(r).toUpperCase());
 
-    // Verificamos si el usuario es Administrador o Gerente
     const esAdmin = rolesNormalizados.some(r => r.includes('ADMIN') || r.includes('COMPR_ADMIN'));
     const esGerente = rolesNormalizados.some(r => r.includes('GERENTE') || r.includes('MANAGE'));
-
     const tieneAcceso = esAdmin || esGerente;
 
-    // REGLA DE SEGURIDAD 1: Si no tiene privilegios o no está logueado, bloqueamos acceso
+    // Determinamos un string de rol limpio para mandarle a la cabecera HTTP
+    const rolPrincipal = esAdmin ? 'ADMIN' : (esGerente ? 'GERENTE' : '');
+
+    // 🔄 🎯 CORREGIDO: Le pasamos el rol y la sucursal al hook para levantar el estado reactivo con seguridad
+    const { historial, cargando, error, recargarHistorial } = useHistorialReportes(rolPrincipal, userSucursalId);
+
+    // REGLA DE SEGURIDAD 1: Bloqueo de acceso total
     if (!tieneAcceso) {
         return (
             <DashboardLayout>
@@ -48,27 +55,38 @@ export const ReportesPage = () => {
             <div className="container mt-4">
                 <h2 className="mb-4">Generación de Reportes</h2>
 
-                {/* REGLA DE SEGURIDAD 2: Solo el ADMINISTRADOR puede ver el formulario */}
-                {esAdmin && (
+                {tieneAcceso && (
                     <div className="card shadow-sm mb-5">
                         <div className="card-body">
                             <h4 className="card-title">Nuevo Reporte</h4>
-                            <p className="text-muted">Configura y emite un nuevo documento de cumplimiento.</p>
+                            <p className="text-muted">
+                                {esAdmin
+                                    ? "Configura y emite un nuevo documento de cumplimiento a nivel corporativo."
+                                    : "Configura y emite el reporte de cumplimiento correspondiente a tu sucursal."}
+                            </p>
 
-                            {/* Formulario de Reporte */}
-                            <FormularioReporte />
+                            <FormularioReporte
+                                esAdmin={esAdmin}
+                                sucursalId={userSucursalId}
+                                alGenerarReporte={recargarHistorial}
+                            />
                         </div>
                     </div>
                 )}
 
-                {/* Ambos pueden ver el historial */}
                 <div className="card shadow-sm">
                     <div className="card-body">
                         <h4 className="card-title mb-3">Historial de Emisiones</h4>
-                        <HistorialReportes />
+                        <HistorialReportes
+                            historial={historial}
+                            cargando={cargando}
+                            error={error}
+                        />
                     </div>
                 </div>
             </div>
         </DashboardLayout>
     );
 };
+
+export default ReportesPage;

@@ -1,8 +1,14 @@
 import React from 'react';
 import Sidebar from '../organisms/Sidebar';
 import { Navbar } from 'react-bootstrap';
+import { useAuth } from '../context/AuthContext.jsx'; // 👈 Importamos tu contexto de autenticación
 
 export const DashboardLayout = ({ children }) => {
+  const { user } = useAuth(); // 👈 Extraemos el usuario logueado
+
+  // 👤 Nombre dinámico: Busca la propiedad disponible o deja un fallback limpio
+  const nombreUsuarioLogueado = user?.nombre || user?.username || user?.name || 'Usuario';
+
   return (
     // Flexbox puro: Sidebar a la izquierda y el contenido a la derecha
     <div className="d-flex w-100" style={{ minHeight: '100vh', backgroundColor: '#020617' }}>
@@ -25,7 +31,8 @@ export const DashboardLayout = ({ children }) => {
               Plataforma de Monitoreo
             </Navbar.Brand>
             <Navbar.Text style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
-              Usuario: <strong style={{ color: '#fff' }}>Admin Corporativo</strong>
+              {/* 🔄 ¡Texto estático eliminado! Ahora renderiza al usuario real */}
+              Usuario: <strong style={{ color: '#fff' }}>{nombreUsuarioLogueado}</strong>
             </Navbar.Text>
           </div>
         </Navbar>

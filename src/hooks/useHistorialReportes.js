@@ -1,16 +1,18 @@
-// src/hooks/useHistorialReportes.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { obtenerHistorialReportes } from '../services/reporteService';
 
-export const useHistorialReportes = () => {
+// 🎯 CORREGIDO: Ahora el hook recibe el rol y sucursal para aislar las consultas en el Back
+export const useHistorialReportes = (rol, sucursalId) => {
     const [historial, setHistorial] = useState([]);
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState(null);
 
-    const cargarHistorial = async () => {
+    // Usamos useCallback para que la referencia de la función no cambie innecesariamente
+    const cargarHistorial = useCallback(async () => {
+        if (!rol) return; // No disparamos si no se ha leído el rol aún
         setCargando(true);
         try {
-            const datos = await obtenerHistorialReportes();
+            const datos = await obtenerHistorialReportes(rol, sucursalId);
             setHistorial(datos);
             setError(null);
         } catch (err) {
@@ -18,12 +20,11 @@ export const useHistorialReportes = () => {
         } finally {
             setCargando(false);
         }
-    };
+    }, [rol, sucursalId]);
 
-    // Esto hace que se ejecute automáticamente al abrir la pantalla
     useEffect(() => {
         cargarHistorial();
-    }, []);
+    }, [cargarHistorial]);
 
     return { historial, cargando, error, recargarHistorial: cargarHistorial };
 };

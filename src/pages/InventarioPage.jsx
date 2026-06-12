@@ -3,30 +3,32 @@ import { DashboardLayout } from '../components/templates/DashboardLayout';
 import { InventoryTable } from '../components/organisms/InventoryTable';
 import { Spinner, Alert, Form } from 'react-bootstrap';
 import { useAuth } from '../components/context/AuthContext.jsx';
+// 🎯 STEP 1: Importamos el Modal de creación que construimos juntos
+import { ProductCreateModal } from '../components/organisms/ProductCreateModal';
 
 export const InventarioPage = () => {
   const authContext = useAuth();
   let user = authContext?.user;
 
-  // Respaldo de sesión
-  // 💡 Respaldo de sesión limpio de alertas ESLint
   if (!user) {
     const localUser = localStorage.getItem('user');
     if (localUser) {
       try {
         user = JSON.parse(localUser);
       } catch {
-        // Ignoramos el error intencionalmente si el json es inválido
         user = null;
       }
     }
   }
 
-  // Extracción segura de roles
+  const userSucursalId = user?.sucursalId || user?.user?.sucursalId || null;
   const rolesDelUsuario = user?.roles || (user?.user?.roles) || (user?.role ? [user.role] : []) || [];
   const rolesNormalizados = rolesDelUsuario.map(r => String(r).toUpperCase());
-  const esAdminOGerente = rolesNormalizados.some(r => r.includes('ADMIN') || r.includes('GERENTE'));
-  const esUsuarioOperativo = !esAdminOGerente;
+
+  const esAdmin = rolesNormalizados.some(r => r.includes('ADMIN'));
+  const esGerente = rolesNormalizados.some(r => r.includes('GERENTE'));
+  const tienePaseGlobal = esAdmin;
+  const esUsuarioRestringido = !tienePaseGlobal;
 
   // Estados de catálogos
   const [productosCatalogo, setProductosCatalogo] = useState([]);
@@ -37,7 +39,12 @@ export const InventarioPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_URL = 'http://localhost:8086';
+  // 🎯 STEP 2: Control de estado booleano para abrir/cerrar el modal
+  const [showModalCrear, setShowModalCrear] = useState(false);
+  // Un contador simple para forzar la recarga del inventario tras crear un producto
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
 
   // 1. Carga inicial ultra-segura
   useEffect(() => {
@@ -50,26 +57,32 @@ export const InventarioPage = () => {
           'Content-Type': 'application/json'
         };
 
-        // A. Cargar Sucursales con validación de datos
         const resSuc = await fetch(`${API_URL}/api/sucursales`, { headers });
         if (!resSuc.ok) throw new Error('El servidor no respondió correctamente al pedir sucursales.');
         const dataSuc = await resSuc.json();
 
-        // Validamos que sea un arreglo válido y tenga elementos antes de setear
         if (Array.isArray(dataSuc) && dataSuc.length > 0) {
-          setSucursales(dataSuc);
-          setSucursalSeleccionada(String(dataSuc[0]?.id || ''));
+          if (tienePaseGlobal) {
+            setSucursales(dataSuc);
+            if (!sucursalSeleccionada) setSucursalSeleccionada(String(dataSuc[0]?.id || ''));
+          } else if (userSucursalId) {
+            const miSucursal = dataSuc.find(suc => suc.id === Number(userSucursalId));
+            if (miSucursal) {
+              setSucursales([miSucursal]);
+              setSucursalSeleccionada(String(miSucursal.id));
+            } else {
+              setSucursalSeleccionada(String(userSucursalId));
+            }
+          }
         } else {
           setSucursales([]);
         }
 
-        // B. Cargar catálogo maestro de productos
         const resProd = await fetch(`${API_URL}/api/productos`, { headers });
         if (!resProd.ok) throw new Error('El servidor no respondió correctamente al pedir catálogo de productos.');
         const dataProd = await resProd.json();
         setProductosCatalogo(Array.isArray(dataProd) ? dataProd : []);
 
-        // C. Cargar Categorías de forma pasiva
         try {
           const resCat = await fetch(`${API_URL}/api/categorias`, { headers });
           if (resCat.ok) {
@@ -90,7 +103,8 @@ export const InventarioPage = () => {
     };
 
     cargarCatalogosIniciales();
-  }, []);
+    // 🎯 Añadimos refreshCounter para que si se crea un producto, se vuelva a gatillar este fetch completo
+  }, [tienePaseGlobal, userSucursalId, refreshCounter]);
 
   // 2. Acoplador dinámico blindado contra nulos
   const [inventarioFiltrado, setInventarioFiltrado] = useState([]);
@@ -145,6 +159,16 @@ export const InventarioPage = () => {
     cargarInventarioDeSucursal();
   }, [sucursalSeleccionada, productosCatalogo, categorias]);
 
+  // 🎯 STEP 3: Declaramos las funciones operativas del Modal
+  const handleAbrirModalCrearProducto = () => {
+    setShowModalCrear(true);
+  };
+
+  const handleProductoCreadoConExito = () => {
+    // Incrementamos el contador para forzar al useEffect a ir a buscar el nuevo catálogo a la base de datos
+    setRefreshCounter(prev => prev + 1);
+  };
+
   const productosDisponibles = inventarioFiltrado.filter(p => p.stockTotalDisponible > 0);
   const productosAgotados = inventarioFiltrado.filter(p => p.stockTotalDisponible === 0);
 
@@ -156,6 +180,14 @@ export const InventarioPage = () => {
             <p className="text-muted">Mostrando exclusivamente las existencias asignadas a este local.</p>
           </div>
 
+          {/* 🎯 STEP 4: El botón ahora gatilla correctamente la función declarada arriba */}
+          <button
+              className="btn bg-success text-white btn-lg shadow-sm"
+              onClick={handleAbrirModalCrearProducto}
+            >
+              📦 Añadir Nuevo Producto
+          </button>
+
           {!loading && !error && sucursales.length > 0 && (
               <div style={{ minWidth: '240px' }}>
                 <Form.Label className="fw-bold text-secondary" style={{ fontSize: '13px' }}>Sucursal Activa</Form.Label>
@@ -163,14 +195,14 @@ export const InventarioPage = () => {
                     value={sucursalSeleccionada}
                     onChange={(e) => setSucursalSeleccionada(e.target.value)}
                     className="bg-dark text-white border-secondary"
-                    disabled={esUsuarioOperativo}
+                    disabled={esUsuarioRestringido}
                 >
                   {sucursales.map(suc => (
                       <option key={suc.id} value={suc.id}>{suc.nombre || `Sucursal ${suc.id}`}</option>
                   ))}
                 </Form.Select>
-                {esUsuarioOperativo && (
-                    <span className="text-muted d-block mt-1" style={{ fontSize: '11px' }}>🔒 Bloqueado por tu rol operativo</span>
+                {esUsuarioRestringido && (
+                    <span className="text-muted d-block mt-1" style={{ fontSize: '11px' }}>🔒 Bloqueado por tu rol de asignación local</span>
                 )}
               </div>
           )}
@@ -219,9 +251,15 @@ export const InventarioPage = () => {
                     <InventoryTable data={productosAgotados} />
                 )}
               </div>
-
             </div>
         )}
+
+        {/* 🎯 STEP 5: Inyectamos el componente Modal al final de la vista */}
+        <ProductCreateModal
+          show={showModalCrear}
+          onHide={() => setShowModalCrear(false)}
+          onSaveSuccess={handleProductoCreadoConExito}
+        />
       </DashboardLayout>
   );
 };

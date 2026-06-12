@@ -1,22 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useKpis } from '../hooks/useKpis';
 import { DashboardLayout } from '../components/templates/DashboardLayout';
-import { useAuth } from '../components/context/AuthContext.jsx'; // 1. Importamos el contexto global
+import { useAuth } from '../components/context/AuthContext.jsx';
 
 export const DashboardPage = () => {
-  // 2. Extraemos el rol del usuario actual
   const { user } = useAuth();
-  const userRole = user?.role;
 
+  // 🛡️ Datos dinámicos del usuario en sesión
+  const userRole = user?.role;
+  const userSucursalId = user?.sucursalId;
+
+  // 📊 Hook de KPIs original (Se mantiene aislado para no romper tus gráficos)
   const respuestaHook = useKpis() || {};
-  const kpisIniciales = respuestaHook.kpis || respuestaHook.data || [];
+  const listaKpis = respuestaHook.kpis || respuestaHook.data || [];
   const loading = respuestaHook.loading || false;
   const error = respuestaHook.error || null;
 
-  const [listaKpis, setListaKpis] = useState([]);
   const [chartData, setChartData] = useState([]);
-  const [sucursales, setSucursales] = useState([]);
-  const [sucursalSeleccionada, setSucursalSeleccionada] = useState('');
+
+  // 🏢 Estado de la sucursal del usuario logueado
+  const [sucursalUsuario, setSucursalUsuario] = useState(null);
+  const [cargandoSucursal, setCargandoSucursal] = useState(true);
 
   // Campos del formulario
   const [nombre, setNombre] = useState('');
@@ -24,59 +28,53 @@ export const DashboardPage = () => {
   const [meta, setMeta] = useState('');
   const [tipoCalculo, setTipoCalculo] = useState('CONTAR_TRANSACCIONES');
 
-  // REGLA DE SEGURIDAD 1: Bloqueo de página completa para el rol OPERATIVO (USUARIO)
-  const rolesPermitidosPagina = ['ADMIN', 'GERENTE'];
-  if (!rolesPermitidosPagina.includes(userRole)) {
+  // Validar accesos basados en tus roles reales de BD (ROLE_ADMIN, ROLE_GERENTE)
+  const rolesConAccesoAVista = ['ROLE_ADMIN', 'ROLE_GERENTE'];
+  if (!rolesConAccesoAVista.includes(userRole)) {
     return (
         <DashboardLayout>
-          <div style={{ ...styles.centerContainer, backgroundColor: '#020617', height: '80vh' }}>
-            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '24px 40px', borderRadius: '12px', textAlign: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '20px' }}>🚫 Acceso Restringido</h3>
-              <p style={{ color: '#64748b', fontSize: '14px', marginTop: '8px', margin: '8px 0 0 0' }}>
-                No tienes autorizaciones de gestión para visualizar el panel de KPIs.
-              </p>
-            </div>
+          <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444', backgroundColor: '#020617', height: '80vh' }}>
+            <h2>🚫 Acceso Denegado</h2>
+            <p style={{ color: '#64748b' }}>No tienes los permisos requeridos para ver las métricas KPI.</p>
           </div>
         </DashboardLayout>
     );
   }
 
-  // Carga inicial de sucursales directas
+  // 🏢 CARGA DINÁMICA: Consulta al endpoint por ID del usuario logueado
   useEffect(() => {
+    if (!userSucursalId) return;
+
+    setCargandoSucursal(true);
     const token = localStorage.getItem('token');
     const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
 
-    fetch(`${API_URL}/api/sucursales`, {
+    // Apuntamos directo al obtenerPorId de tu controlador: /api/sucursales/{id}
+    fetch(`${API_URL}/api/sucursales/${userSucursalId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     })
         .then(res => {
-          if (!res.ok) throw new Error('No se pudieron obtener las sucursales');
+          if (!res.ok) throw new Error(`Error en pasarela: Status ${res.status}`);
           return res.json();
         })
         .then(data => {
-          if (data && Array.isArray(data)) {
-            setSucursales(data);
-            if (data.length > 0) {
-              setSucursalSeleccionada(String(data[0].id));
-            }
+          // data mapea directo con tu SucursalResponseDto (id, nombre, codigo, etc.)
+          if (data && data.nombre) {
+            setSucursalUsuario(data);
           }
         })
         .catch(err => {
-          console.error("Error al cargar sucursales en el Dashboard:", err);
+          console.error("Error cargando sucursal por ID:", err);
+        })
+        .finally(() => {
+          setCargandoSucursal(false);
         });
-  }, []);
+  }, [userSucursalId]);
 
-  // Sincroniza datos iniciales del Hook
-  useEffect(() => {
-    if (kpisIniciales && Array.isArray(kpisIniciales) && kpisIniciales.length > 0) {
-      setListaKpis(kpisIniciales);
-    }
-  }, [kpisIniciales]);
-
-  // Actualiza los gráficos nativos por CSS
+  // Transformación de datos para gráficos (Aislado de la lógica de sucursales)
   useEffect(() => {
     if (listaKpis && Array.isArray(listaKpis) && listaKpis.length > 0) {
       const data = listaKpis.map(kpi => {
@@ -94,27 +92,14 @@ export const DashboardPage = () => {
         };
       });
       setChartData(data);
-    } else {
-      setChartData([]);
     }
   }, [listaKpis]);
 
   const handleCrearKpi = async (e) => {
     e.preventDefault();
 
-    // Doble verificación en Frontend por seguridad
-    if (userRole !== 'ADMIN') {
-      alert("Tu rol no tiene autorización para realizar esta acción.");
-      return;
-    }
-
     if (!nombre.trim() || !meta) {
-      alert("Por favor rellena al menos el Nombre y la Meta para definir la métrica.");
-      return;
-    }
-
-    if (!sucursalSeleccionada) {
-      alert("Es obligatorio seleccionar una Sucursal válida para registrar la métrica.");
+      alert("Por favor rellena los campos obligatorios.");
       return;
     }
 
@@ -131,15 +116,15 @@ export const DashboardPage = () => {
         },
         body: JSON.stringify({
           nombre: nombre,
-          descripcion: `Meta global de ${nombre}`,
+          descripcion: `Métrica de ${nombre}`,
           valorObjetivo: Number(meta),
           unidad: unidadCalculada,
           tipoCalculo: tipoCalculo
         })
       });
 
-      if (!responseDefinicion.ok) throw new Error('No se pudo guardar la definición del KPI');
-      const nuevaDefinicionGuardada = await responseDefinicion.json();
+      if (!responseDefinicion.ok) throw new Error('Error al guardar definición del KPI');
+      const nuevaDefinicion = await responseDefinicion.json();
 
       if (valorActual && Number(valorActual) > 0) {
         await fetch(`${API_URL}/api/kpi/metricas`, {
@@ -149,8 +134,8 @@ export const DashboardPage = () => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            definicion: { id: nuevaDefinicionGuardada.id },
-            sucursalId: Number(sucursalSeleccionada),
+            definicion: { id: nuevaDefinicion.id },
+            sucursalId: Number(userSucursalId),
             valorActual: Number(valorActual)
           })
         });
@@ -159,12 +144,11 @@ export const DashboardPage = () => {
       setNombre('');
       setValorActual('');
       setMeta('');
-      setTipoCalculo('CONTAR_TRANSACCIONES');
       window.location.reload();
 
     } catch (err) {
-      console.error("Error al crear el KPI:", err);
-      alert("Hubo un error al comunicar con el microservicio: " + err.message);
+      console.error("Error al guardar KPI:", err);
+      alert("Error de comunicación: " + err.message);
     }
   };
 
@@ -172,20 +156,7 @@ export const DashboardPage = () => {
     return (
         <DashboardLayout>
           <div style={styles.centerContainer}>
-            <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}></div>
-            <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>Cargando métricas y sucursales...</p>
-          </div>
-        </DashboardLayout>
-    );
-  }
-
-  if (error) {
-    return (
-        <DashboardLayout>
-          <div style={styles.centerContainer}>
-            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '16px 24px', borderRadius: '8px' }}>
-              <strong>⚠️ Error:</strong> {String(error)}
-            </div>
+            <p style={{ color: '#64748b', fontSize: '14px' }}>Cargando datos del sistema...</p>
           </div>
         </DashboardLayout>
     );
@@ -208,55 +179,50 @@ export const DashboardPage = () => {
             <p style={styles.subtitle}>Resumen general y definición de indicadores de desempeño en tiempo real</p>
           </div>
 
-          {/* 🌟 REGLA DE SEGURIDAD 2: El formulario de creación SOLO se renderiza si eres ADMIN */}
-          {userRole === 'ADMIN' && (
-              <div style={{ ...styles.card, marginBottom: '24px' }}>
-                <h2 style={styles.cardTitle}>➕ Definir Nueva Métrica / KPI</h2>
-                <form onSubmit={handleCrearKpi} style={styles.formRow}>
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Nombre de la Métrica</label>
-                    <input type="text" placeholder="Ej: Total de Facturaciones" value={nombre} onChange={(e) => setNombre(e.target.value)} style={styles.input} />
-                  </div>
-
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Sucursal Destino</label>
-                    <select value={sucursalSeleccionada || ''} onChange={(e) => setSucursalSeleccionada(e.target.value)} style={styles.selectInput}>
-                      <option value="" disabled>Seleccione una sucursal...</option>
-                      {sucursales.map((suc) => <option key={suc.id} value={suc.id}>{suc.nombre || `Sucursal ${suc.id}`}</option>)}
-                    </select>
-                  </div>
-
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>¿Qué medirá este KPI?</label>
-                    <select value={tipoCalculo} onChange={(e) => setTipoCalculo(e.target.value)} style={styles.selectInput}>
-                      <option value="CONTAR_TRANSACCIONES">Contar Transacciones (1 por Boleta global)</option>
-                      <option value="SUMAR_PRODUCTOS">Sumar Productos (Volumen total de ítems)</option>
-                    </select>
-                  </div>
-
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Valor Inicial</label>
-                    <input type="number" placeholder="0" value={valorActual} onChange={(e) => setValorActual(e.target.value)} style={styles.input} />
-                  </div>
-
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Meta / Objetivo</label>
-                    <input type="number" placeholder="100" value={meta} onChange={(e) => setMeta(e.target.value)} style={styles.input} />
-                  </div>
-
-                  <div style={{ ...styles.inputGroup, justifyContent: 'flex-end' }}>
-                    <button type="submit" style={styles.button}>Crear Métrica</button>
-                  </div>
-                </form>
-                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', textAlign: 'left', margin: '12px 0 0 0' }}>
-                  {tipoCalculo === 'CONTAR_TRANSACCIONES'
-                      ? '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará únicamente +1.'
-                      : '💡 Regla activa: Si una venta lleva múltiples artículos, este indicador sumará el volumen físico total de unidades.'}
-                </p>
+          <div style={{ ...styles.card, marginBottom: '24px' }}>
+            <h2 style={styles.cardTitle}>➕ Definir Nueva Métrica / KPI</h2>
+            <form onSubmit={handleCrearKpi} style={styles.formRow}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Nombre de la Métrica</label>
+                <input type="text" placeholder="Ej: Total de Facturaciones" value={nombre} onChange={(e) => setNombre(e.target.value)} style={styles.input} required />
               </div>
-          )}
 
-          {/* Stats Grid - Visible para Admin y Gerente */}
+              {/* 🏢 Entrada de Sucursal limpia, dinámica y basada en el DTO de tu Backend */}
+              <div style={{ ...styles.inputGroup, minWidth: '240px' }}>
+                <label style={styles.label}>Tu Sucursal Asignada</label>
+                <input
+                  type="text"
+                  value={cargandoSucursal ? "Buscando sucursal..." : (sucursalUsuario?.nombre || `Sucursal N° ${userSucursalId}`)}
+                  style={{ ...styles.input, backgroundColor: '#0f172a', border: '1px solid #334155', color: '#cbd5e1', cursor: 'not-allowed' }}
+                  disabled
+                />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>¿Qué medirá este KPI?</label>
+                <select value={tipoCalculo} onChange={(e) => setTipoCalculo(e.target.value)} style={styles.selectInput}>
+                  <option value="CONTAR_TRANSACCIONES">Contar Transacciones (1 por Boleta global)</option>
+                  <option value="SUMAR_PRODUCTOS">Sumar Productos (Volumen total de ítems)</option>
+                </select>
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Valor Inicial</label>
+                <input type="number" placeholder="0" value={valorActual} onChange={(e) => setValorActual(e.target.value)} style={styles.input} />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Meta / Objetivo</label>
+                <input type="number" placeholder="100" value={meta} onChange={(e) => setMeta(e.target.value)} style={styles.input} required />
+              </div>
+
+              <div style={{ ...styles.inputGroup, justifyContent: 'flex-end' }}>
+                <button type="submit" style={styles.button}>Crear Métrica</button>
+              </div>
+            </form>
+          </div>
+
+          {/* Tarjetas de Reportes */}
           <div style={styles.statsGrid}>
             {stats.map(({ label, value, icon, color, bg }) => (
                 <div key={label} style={styles.card}>
@@ -269,12 +235,12 @@ export const DashboardPage = () => {
             ))}
           </div>
 
-          {/* Row de Contenedores Visuales - Visible para Admin y Gerente */}
+          {/* Gráficos recuperados al 100% */}
           <div style={styles.chartsGrid}>
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>Promedio vs Objetivo por KPI</h2>
               {chartData.length === 0 ? (
-                  <p style={styles.emptyText}>Sin datos disponibles</p>
+                  <p style={styles.emptyText}>Sin datos disponibles para graficar</p>
               ) : (
                   <div style={styles.nativeChartWrapper}>
                     {chartData.map((kpi, index) => {
@@ -288,18 +254,10 @@ export const DashboardPage = () => {
                               <div title={`Promedio actual: ${kpi.promedio}`} style={{ ...styles.nativeBar, height: `${alturaPromedio}%`, backgroundColor: '#3b82f6' }} />
                               <div title={`Valor objetivo: ${kpi.objetivo}`} style={{ ...styles.nativeBar, height: `${alturaObjetivo}%`, backgroundColor: '#10b981' }} />
                             </div>
-                            <span style={styles.chartLabel} title={kpi.nombre}>
-                        {kpi.nombre.length > 10 ? `${kpi.nombre.substring(0, 8)}..` : kpi.nombre}
-                      </span>
+                            <span style={styles.chartLabel} title={kpi.nombre}>{kpi.nombre}</span>
                           </div>
                       );
                     })}
-                  </div>
-              )}
-              {chartData.length > 0 && (
-                  <div style={styles.legendContainer}>
-                    <div style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#3b82f6'}} /> Promedio actual</div>
-                    <div style={styles.legendItem}><span style={{...styles.legendDot, backgroundColor: '#10b981'}} /> Valor objetivo</div>
                   </div>
               )}
             </div>
@@ -318,10 +276,8 @@ export const DashboardPage = () => {
                       return (
                           <div key={i}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <span style={{ fontSize: '14px', color: '#cbd5e1', fontWeight: '500', textAlign: 'left' }}>{kpi.nombre}</span>
-                              <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#64748b' }}>
-                          {kpi.promedio} / {kpi.objetivo}
-                        </span>
+                              <span style={{ fontSize: '14px', color: '#cbd5e1', fontWeight: '500' }}>{kpi.nombre}</span>
+                              <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#64748b' }}>{kpi.promedio} / {kpi.objetivo}</span>
                             </div>
                             <div style={styles.progressTrack}>
                               <div style={{ ...styles.progressBar, width: `${pct}%`, backgroundColor: barColor }} />
@@ -338,10 +294,9 @@ export const DashboardPage = () => {
   );
 };
 
-// ... Mantienes tus estilos constantes abajo exactamente igual
 const styles = {
   container: { backgroundColor: '#020617', padding: '12px 0', fontFamily: "'Segoe UI', Roboto, sans-serif", color: '#f1f5f9', boxSizing: 'border-box' },
-  centerContainer: { minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+  centerContainer: { minHeight: '40vh', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: '24px', fontWeight: '600', color: '#f8fafc', margin: 0, textAlign: 'left' },
   subtitle: { fontSize: '14px', color: '#64748b', marginTop: '4px', margin: 0, textAlign: 'left' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' },
@@ -357,17 +312,14 @@ const styles = {
   nativeChartWrapper: { display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '200px', padding: '10px 0', borderBottom: '1px solid #1e293b', gap: '12px' },
   chartColumn: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' },
   barsContainer: { display: 'flex', alignItems: 'flex-end', gap: '6px', width: '100%', height: '100%', justifyContent: 'center', marginBottom: '8px' },
-  nativeBar: { width: '16px', borderRadius: '4px 4px 0 0', transition: 'height 0.6s cubic-bezier(0.4, 0, 0.2, 1)' },
-  chartLabel: { fontSize: '11px', color: '#64748b', textAlign: 'center', marginTop: '4px', whiteSpace: 'nowrap' },
-  legendContainer: { display: 'flex', gap: '16px', marginTop: '16px', justifyContent: 'center' },
-  legendItem: { fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' },
-  legendDot: { width: '10px', height: '10px', borderRadius: '3px', display: 'inline-block' },
+  nativeBar: { width: '16px', borderRadius: '4px 4px 0 0', transition: 'height 0.6s' },
+  chartLabel: { fontSize: '11px', color: '#64748b', textAlign: 'center', marginTop: '4px' },
   formRow: { display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', alignItems: 'flex-end' },
   inputGroup: { display: 'flex', flexDirection: 'column', flex: '1 1 150px', gap: '6px' },
   label: { fontSize: '12px', color: '#94a3b8', fontWeight: '500', textAlign: 'left' },
   input: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box' },
   selectInput: { backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '6px', padding: '10px 12px', fontSize: '14px', color: '#f1f5f9', outline: 'none', width: '100%', boxSizing: 'border-box', cursor: 'pointer' },
-  button: { backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', height: '42px', transition: 'background-color 0.2s' }
+  button: { backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', height: '42px' }
 };
 
 export default DashboardPage;

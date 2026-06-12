@@ -1,12 +1,9 @@
 import React from 'react';
-// Ajusta la cantidad de "../" dependiendo de qué tan profundo esté tu hook
-import { useHistorialReportes } from '../../hooks/useHistorialReportes';
 import { descargarReporteAntiguo } from '../../services/reporteService';
 
+// 🎯 CORRECCIÓN: Ahora recibimos los estados directamente desde ReportesPage.jsx
+export const HistorialReportes = ({ historial = [], cargando, error }) => {
 
-export const HistorialReportes = () => {
-    const { historial, cargando, error } = useHistorialReportes();
-    
     const handleDescargarAntiguo = async (id) => {
         try {
             await descargarReporteAntiguo(id);
@@ -38,7 +35,6 @@ export const HistorialReportes = () => {
                             <td>{reporte.id}</td>
                             <td>{reporte.nombreKpi}</td>
                             <td>{reporte.periodo}</td>
-                            {/* Formateamos a peso chileno para que se vea profesional */}
                             <td>${reporte.ventasReales.toLocaleString('es-CL')}</td>
                             <td>
                                 <span className={reporte.estadoFinal === 'SUPERADO' ? 'badge bg-success' : 'badge bg-danger'}>

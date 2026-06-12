@@ -2,16 +2,31 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const links = [
-  { to: '/kpi', icon: '📈', label: 'Dashboard KPIs' },
-  { to: '/ventas', icon: '🛒', label: 'Compras / Ventas' },
-  { to: '/inventario', icon: '📦', label: 'Inventario' },
-  { to: '/reportes', icon: '📊', label: 'Reportes' },
+  { to: '/kpi', icon: '📈', label: 'Dashboard KPIs', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE'] },
+  { to: '/ventas', icon: '🛒', label: 'Compras / Ventas', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_USUARIO'] },
+  { to: '/inventario', icon: '📦', label: 'Inventario', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_USUARIO'] },
+  { to: '/reportes', icon: '📊', label: 'Reportes', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE'] },
 ];
 
 export const Sidebar = () => {
+  // 🔍 Obtenemos los roles del usuario logueado de manera segura
+  const userRaw = localStorage.getItem('user');
+  let rolesUsuario = [];
+
+  try {
+    if (userRaw) {
+      const parsedUser = JSON.parse(userRaw);
+      // Validamos si viene como 'roles' (array) o 'rol' (string). Nos adaptamos a lo que mande el BFF:
+      rolesUsuario = Array.isArray(parsedUser.roles)
+        ? parsedUser.roles
+        : parsedUser.rol ? [parsedUser.rol] : [];
+    }
+  } catch (e) {
+    console.error("Error al leer los roles del localStorage", e);
+  }
+
   return (
     <aside style={styles.sidebar}>
-      {/* LOGO DE LA COMPAÑÍA */}
       <div style={styles.logoContainer}>
         <div style={styles.flexRowCentered}>
           <div style={styles.logoBadge}>
@@ -24,21 +39,25 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      {/* MENÚ DE ENLACES */}
       <nav style={styles.navigation}>
-        {links.map(({ to, icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) => `custom-sidebar-link ${isActive ? 'active-link' : 'inactive-link'}`}
-          >
-            {icon && <span style={styles.iconContainer}>{icon}</span>}
-            <span>{label}</span>
-          </NavLink>
-        ))}
+        {links
+          // 🛡️ FILTRO MÁGICO: Solo dibuja el botón si el usuario cumple con los roles requeridos
+          .filter(({ rolesPermitidos }) =>
+            rolesPermitidos.some(rolRequired => rolesUsuario.includes(rolRequired))
+          )
+          .map(({ to, icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) => `custom-sidebar-link ${isActive ? 'active-link' : 'inactive-link'}`}
+            >
+              {icon && <span style={styles.iconContainer}>{icon}</span>}
+              <span>{label}</span>
+            </NavLink>
+          ))
+        }
       </nav>
 
-      {/* FOOTER */}
       <div style={styles.footer}>
         <p style={styles.footerText}>v1.0.0 · DSY1106</p>
       </div>
@@ -76,18 +95,7 @@ export const Sidebar = () => {
 };
 
 const styles = {
-  sidebar: {
-    width: '240px',
-    minWidth: '240px',
-    flexShrink: 0, // 💡 Bloquea el ancho para que el layout no intente aplastar el menú
-    backgroundColor: '#0f172a',
-    borderRight: '1px solid #1e293b',
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    fontFamily: "'Segoe UI', Roboto, sans-serif",
-    boxSizing: 'border-box'
-  },
+  sidebar: { width: '240px', minWidth: '240px', flexShrink: 0, backgroundColor: '#0f172a', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: "'Segoe UI', Roboto, sans-serif", boxSizing: 'border-box' },
   logoContainer: { padding: '20px 24px', borderBottom: '1px solid #1e293b' },
   flexRowCentered: { display: 'flex', alignItems: 'center', gap: '12px' },
   logoBadge: { width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' },
