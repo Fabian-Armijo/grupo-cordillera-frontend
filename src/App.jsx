@@ -6,8 +6,9 @@ import { InventarioPage } from './pages/InventarioPage';
 import { ReportesPage } from './pages/ReportesPage';
 import { InicioPage } from './pages/InicioPage';
 import { LoginPage } from './pages/LoginPage';
+import { GestionUsuariosPage } from './pages/GestionUsuariosPage';
 
-// 🛡️ Guardián de Rutas Avanzado con Validación de Roles
+// Guardián de rutas con validación de roles
 const RutaProtegida = ({ children, rolesPermitidos }) => {
     const token = localStorage.getItem('token');
     const userRaw = localStorage.getItem('user');
@@ -19,22 +20,18 @@ const RutaProtegida = ({ children, rolesPermitidos }) => {
     try {
         const parsedUser = JSON.parse(userRaw);
 
-        // Manejo ultra seguro por si el backend lo manda como 'roles', 'rol' o 'authorities'
         let rolesUsuario = [];
         if (Array.isArray(parsedUser.roles)) {
             rolesUsuario = parsedUser.roles;
         } else if (parsedUser.rol) {
             rolesUsuario = [parsedUser.rol];
         } else if (Array.isArray(parsedUser.authorities)) {
-            // A veces Spring Security inyecta un array de objetos con la propiedad authority
             rolesUsuario = parsedUser.authorities.map(auth => typeof auth === 'string' ? auth : auth.authority);
         }
 
-        // Comprobamos si el usuario tiene al menos uno de los roles con prefijo ROLE_
         const tienePermiso = rolesPermitidos.some(rolRequired => rolesUsuario.includes(rolRequired));
 
         if (!tienePermiso) {
-            // Si no tiene permiso (ej: ROLE_USUARIO queriendo ver reportes), lo mandamos a ventas
             return <Navigate to="/ventas" replace />;
         }
     } catch (e) {
@@ -49,7 +46,6 @@ function App() {
     return (
         <Router>
             <Routes>
-                {/* --- CONTROL DE ACCESO RAÍZ --- */}
                 <Route
                     path="/"
                     element={
@@ -64,7 +60,6 @@ function App() {
                 <Route path="/bienvenida" element={<InicioPage />} />
                 <Route path="/login" element={<LoginPage />} />
 
-                {/* --- RUTAS PROTEGIDAS CON FILTRO DE ROLES REALES (ROLE_...) --- */}
                 <Route
                     path="/kpi"
                     element={
@@ -101,7 +96,16 @@ function App() {
                     }
                 />
 
-                {/* Comodín por si escriben cualquier otra ruta inexistente */}
+                {/* ✅ NUEVO: Módulo de gestión de usuarios — solo ROLE_ADMIN */}
+                <Route
+                    path="/usuarios"
+                    element={
+                        <RutaProtegida rolesPermitidos={['ROLE_ADMIN']}>
+                            <GestionUsuariosPage />
+                        </RutaProtegida>
+                    }
+                />
+
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Router>

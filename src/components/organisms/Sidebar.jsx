@@ -2,21 +2,21 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const links = [
-  { to: '/kpi', icon: '📈', label: 'Dashboard KPIs', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE'] },
-  { to: '/ventas', icon: '🛒', label: 'Compras / Ventas', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_USUARIO'] },
-  { to: '/inventario', icon: '📦', label: 'Inventario', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_USUARIO'] },
-  { to: '/reportes', icon: '📊', label: 'Reportes', rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE'] },
+  { to: '/kpi',       icon: '📈', label: 'Dashboard KPIs',    rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE'] },
+  { to: '/ventas',    icon: '🛒', label: 'Compras / Ventas',   rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_USUARIO'] },
+  { to: '/inventario',icon: '📦', label: 'Inventario',         rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_USUARIO'] },
+  { to: '/reportes',  icon: '📊', label: 'Reportes',           rolesPermitidos: ['ROLE_ADMIN', 'ROLE_GERENTE'] },
+  // ✅ NUEVO: Solo visible para ROLE_ADMIN
+  { to: '/usuarios',  icon: '👥', label: 'Gestión de Usuarios', rolesPermitidos: ['ROLE_ADMIN'] },
 ];
 
 export const Sidebar = () => {
-  // 🔍 Obtenemos los roles del usuario logueado de manera segura
   const userRaw = localStorage.getItem('user');
   let rolesUsuario = [];
 
   try {
     if (userRaw) {
       const parsedUser = JSON.parse(userRaw);
-      // Validamos si viene como 'roles' (array) o 'rol' (string). Nos adaptamos a lo que mande el BFF:
       rolesUsuario = Array.isArray(parsedUser.roles)
         ? parsedUser.roles
         : parsedUser.rol ? [parsedUser.rol] : [];
@@ -24,6 +24,8 @@ export const Sidebar = () => {
   } catch (e) {
     console.error("Error al leer los roles del localStorage", e);
   }
+
+  const esAdmin = rolesUsuario.includes('ROLE_ADMIN');
 
   return (
     <aside style={styles.sidebar}>
@@ -41,7 +43,6 @@ export const Sidebar = () => {
 
       <nav style={styles.navigation}>
         {links
-          // 🛡️ FILTRO MÁGICO: Solo dibuja el botón si el usuario cumple con los roles requeridos
           .filter(({ rolesPermitidos }) =>
             rolesPermitidos.some(rolRequired => rolesUsuario.includes(rolRequired))
           )
@@ -57,6 +58,17 @@ export const Sidebar = () => {
           ))
         }
       </nav>
+
+      {/* Separador y sección de admin al pie del sidebar */}
+      {esAdmin && (
+        <div style={styles.adminSection}>
+          <p style={styles.adminLabel}>ADMINISTRACIÓN</p>
+          <div style={styles.adminBadge}>
+            <span style={styles.adminDot} />
+            Acceso de Administrador
+          </div>
+        </div>
+      )}
 
       <div style={styles.footer}>
         <p style={styles.footerText}>v1.0.0 · DSY1106</p>
@@ -95,16 +107,42 @@ export const Sidebar = () => {
 };
 
 const styles = {
-  sidebar: { width: '240px', minWidth: '240px', flexShrink: 0, backgroundColor: '#0f172a', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: "'Segoe UI', Roboto, sans-serif", boxSizing: 'border-box' },
+  sidebar: {
+    width: '240px', minWidth: '240px', flexShrink: 0,
+    backgroundColor: '#0f172a', borderRight: '1px solid #1e293b',
+    display: 'flex', flexDirection: 'column', height: '100vh',
+    fontFamily: "'Segoe UI', Roboto, sans-serif", boxSizing: 'border-box',
+  },
   logoContainer: { padding: '20px 24px', borderBottom: '1px solid #1e293b' },
   flexRowCentered: { display: 'flex', alignItems: 'center', gap: '12px' },
-  logoBadge: { width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  logoBadge: {
+    width: '32px', height: '32px', borderRadius: '8px',
+    backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
   brandTitle: { fontSize: '14px', fontWeight: '600', color: '#f8fafc', margin: 0, lineHeight: '1.2' },
   brandSubtitle: { fontSize: '12px', color: '#64748b', margin: 0 },
   navigation: { flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column' },
   iconContainer: { width: '18px', display: 'inline-flex', justifyContent: 'center', fontSize: '14px' },
+  adminSection: {
+    padding: '12px 16px',
+    borderTop: '1px solid #1e293b',
+    margin: '0 8px',
+  },
+  adminLabel: {
+    fontSize: '10px', fontWeight: '600', color: '#334155',
+    letterSpacing: '0.08em', margin: '0 0 8px 0',
+  },
+  adminBadge: {
+    display: 'flex', alignItems: 'center', gap: '6px',
+    fontSize: '12px', color: '#64748b',
+  },
+  adminDot: {
+    width: '6px', height: '6px', borderRadius: '50%',
+    backgroundColor: '#10b981', flexShrink: 0,
+    boxShadow: '0 0 4px #10b981',
+  },
   footer: { padding: '16px', borderTop: '1px solid #1e293b' },
-  footerText: { fontSize: '12px', color: '#475569', fontFamily: 'monospace', margin: 0 }
+  footerText: { fontSize: '12px', color: '#475569', fontFamily: 'monospace', margin: 0 },
 };
 
 export default Sidebar;
