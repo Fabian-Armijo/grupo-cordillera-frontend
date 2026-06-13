@@ -4,31 +4,60 @@ const API_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8086';
 
 const getHeaders = () => {
     const token = localStorage.getItem('token');
+
     return {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
     };
 };
 
-// Crea un usuario nuevo enviando username, email, password y roles
-export const crearUsuario = async ({ username, email, password, roles, sucursalId }) => {
+// Crear usuario
+export const crearUsuario = async ({
+    username,
+    email,
+    password,
+    roles,
+    sucursalId
+}) => {
+
+    console.log("TOKEN:", localStorage.getItem('token'));
+
+    console.log("BODY:", JSON.stringify({
+        username,
+        email,
+        password,
+        roles,
+        sucursalId
+    }));
+
     const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: getHeaders(),
         credentials: 'include',
-        body: JSON.stringify({ username, email, password, roles, sucursalId }),
+        body: JSON.stringify({
+            username,
+            email,
+            password,
+            roles,
+            sucursalId
+        }),
     });
 
-    const data = await response.json();
+    console.log("STATUS:", response.status);
+    console.log("OK:", response.ok);
+
+    const texto = await response.text();
+
+    console.log("RESPUESTA RAW:", texto);
 
     if (!response.ok) {
-        throw new Error(data.error || 'Error al crear el usuario');
+        throw new Error(texto);
     }
 
-    return data;
+    return texto;
 };
 
-// Lista todos los usuarios (solo disponible para ADMIN)
+// Listar usuarios
 export const listarUsuarios = async () => {
     const response = await fetch(`${API_URL}/api/auth/users`, {
         method: 'GET',

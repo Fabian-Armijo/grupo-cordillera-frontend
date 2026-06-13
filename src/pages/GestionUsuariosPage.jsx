@@ -43,8 +43,11 @@ export const GestionUsuariosPage = () => {
         setCargandoUsuarios(true);
         try {
             const data = await listarUsuarios();
+            console.log("USUARIOS RECIBIDOS:", data);
+            console.table(data);
             setUsuarios(Array.isArray(data) ? data : []);
         } catch (e) {
+            console.error("ERROR LISTANDO:", e);
             setUsuarios([]);
         } finally {
             setCargandoUsuarios(false);
@@ -70,7 +73,7 @@ export const GestionUsuariosPage = () => {
                 username: form.username.trim(),
                 email: form.email.trim(),
                 password: form.password,
-                roles: new Set([form.rol]),
+                roles: [form.rol],
                 sucursalId: form.sucursalId ? Number(form.sucursalId) : null,
             });
 

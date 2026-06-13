@@ -1,4 +1,5 @@
 // src/services/authService.js
+
 const API_URL = 'http://localhost:8086/api/auth';
 
 export const loginUsuario = async (username, password) => {
@@ -8,7 +9,7 @@ export const loginUsuario = async (username, password) => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            credentials: 'include', // Crucial para que el BFF maneje las cookies HttpOnly
+            credentials: 'include',
             body: JSON.stringify({ username, password }),
         });
 
@@ -16,9 +17,10 @@ export const loginUsuario = async (username, password) => {
             throw new Error('Usuario o contraseña incorrectos');
         }
 
-        // 🚨 RETORNAMOS EL JSON COMPLETO:
-        // Como el backend ya responde bien, leemos el objeto con el username, roles, etc.
         const data = await response.json();
+
+        console.log("LOGIN RESPONSE:", data);
+
         return data;
 
     } catch (error) {
@@ -29,5 +31,8 @@ export const loginUsuario = async (username, password) => {
 
 export const logoutUsuario = () => {
     localStorage.removeItem('username');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
     window.location.href = '/login';
 };

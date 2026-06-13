@@ -58,7 +58,6 @@ export const SalesTable = ({ data = [] }) => {
                             <th>Canal / Origen</th>
                             <th>Sucursal Asignada</th>
                             <th>Producto / SKU</th>
-                            <th>Cantidad</th>
                             <th>Monto Total</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -90,9 +89,6 @@ export const SalesTable = ({ data = [] }) => {
 
                                     {/* 🎯 CORREGIDO: Muestra el identificador del producto */}
                                     <td><small className="text-muted">{item.skuProducto}</small></td>
-
-                                    {/* 🎯 EXTRA: Agregamos columna de cantidad para que se entienda la fila */}
-                                    <td>{item.cantidad || 1} u.</td>
 
                                     {/* 🎯 CORREGIDO: Formatea el monto real mapeado en VentasPage */}
                                     <td className="fw-bold">{formatCurrency(item.montoTotal)}</td>

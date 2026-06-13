@@ -48,7 +48,7 @@ export const InventoryTable = ({ data = [], esAdmin = false }) => {
             <th>Precio</th>
             {/* 🎯 Adaptación de Cabecera según Rol */}
             <th>{esAdmin ? 'Stock Consolidado' : 'Stock Disponible'}</th>
-            <th>Acciones</th>
+
           </tr>
         </thead>
         <tbody>
@@ -68,12 +68,7 @@ export const InventoryTable = ({ data = [], esAdmin = false }) => {
                     {item.stockTotalDisponible} unid.
                   </Badge>
                 </td>
-                <td>
-                  {/* 🔒 Regla de Negocio: Opcional por si solo el Admin puede editar catálogos */}
-                  <button className={`btn btn-sm ${esAdmin ? 'btn-outline-primary' : 'btn-outline-secondary'}`}>
-                    {esAdmin ? 'Editar' : 'Ver Detalles'}
-                  </button>
-                </td>
+
               </tr>
             ))
           ) : (

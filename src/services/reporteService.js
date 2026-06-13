@@ -6,6 +6,8 @@ export const obtenerHistorialReportes = async (rol, sucursalId) => {
     try {
         const token = localStorage.getItem('token');
 
+
+
         const response = await fetch(`${BASE_PATH}/historial`, {
             method: 'GET',
             headers: {
@@ -16,10 +18,20 @@ export const obtenerHistorialReportes = async (rol, sucursalId) => {
             }
         });
 
+
+
         if (!response.ok) {
-            throw new Error(`Error al obtener el historial de reportes. Status: ${response.status}`);
+            throw new Error(
+                `Error al obtener el historial de reportes. Status: ${response.status}`
+            );
         }
-        return await response.json();
+
+        const data = await response.json();
+
+
+
+        return data;
+
     } catch (error) {
         console.error("Error de conexión:", error);
         throw error;
@@ -55,14 +67,19 @@ export const descargarReporteAntiguo = async (id) => {
     }
 };
 
-export const generarYDescargarReporte = async (kpiId, sucursalId, periodo) => {
+export const generarYDescargarReporte = async (kpiId, sucursalId, periodo, rol) => {
     try {
         const token = localStorage.getItem('token');
-        const url = `${BASE_PATH}/descargar?kpiId=${kpiId}&sucursalId=${sucursalId}&periodo=${periodo}`;
 
+        const url = `${BASE_PATH}/descargar?kpiId=${kpiId}&sucursalId=${sucursalId}&periodo=${periodo}`;
+        console.log("ROL ENVIADO:", rol);
+        console.log("SUCURSAL ENVIADA:", sucursalId);
         const response = await fetch(url, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${token}`,
+            'X-User-Role': rol,'X-Sucursal-Id': String(sucursalId)
+             }
+
         });
 
         if (!response.ok) throw new Error('Error al generar el PDF');
