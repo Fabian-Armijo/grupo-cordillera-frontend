@@ -1,0 +1,1 @@
+module.exports = { postCrearVenta: jest.fn(), getListaVentas: jest.fn() };

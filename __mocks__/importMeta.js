@@ -1,0 +1,3 @@
+module.exports = {
+    VITE_BFF_URL: 'http://localhost:8080'
+};
